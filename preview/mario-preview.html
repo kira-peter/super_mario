@@ -1,0 +1,1237 @@
+<title>马里奥像素预览</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  --bg: #faf8f6;
+  --surface: #ffffff;
+  --sunken: #f2efeb;
+  --fg: #1a1a1c;
+  --muted: #6b6a68;
+  --faint: #9d9a96;
+  --border: #e4dfd9;
+  --accent: #c0392b;
+  --accent-soft: #f6e6e3;
+  --cool: #0f7b8c;
+  --term-bg: #12141a;
+  --term-fg: #e4e7ee;
+  --term-muted: #9aa3b2;
+  --term-border: #2c313d;
+
+  --display: "Archivo", "Helvetica Neue", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a;
+    --surface: #1b1e24;
+    --sunken: #191c22;
+    --fg: #e8e6e3;
+    --muted: #9a9794;
+    --faint: #6d6a67;
+    --border: #2a2e36;
+    --accent: #e05a4a;
+    --accent-soft: #2e1f1d;
+    --cool: #5ec8d8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161a;
+  --surface: #1b1e24;
+  --sunken: #191c22;
+  --fg: #e8e6e3;
+  --muted: #9a9794;
+  --faint: #6d6a67;
+  --border: #2a2e36;
+  --accent: #e05a4a;
+  --accent-soft: #2e1f1d;
+  --cool: #5ec8d8;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 72px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1040px; margin: 0 auto; }
+
+/* ---- header ---- */
+header {
+  padding-block: 56px 40px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 56px;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 18px;
+  font-weight: 500;
+}
+h1 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(30px, 5.2vw, 46px);
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+  max-width: 20ch;
+}
+.lede {
+  font-size: 17px;
+  color: var(--muted);
+  max-width: 62ch;
+  margin: 0;
+}
+.lede strong { color: var(--fg); font-weight: 500; }
+
+/* ---- sections ---- */
+section { margin-bottom: 64px; }
+h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.012em;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+h2 .num {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--faint);
+  letter-spacing: 0.08em;
+}
+.sub {
+  color: var(--muted);
+  font-size: 15px;
+  margin: 0 0 26px;
+  max-width: 66ch;
+}
+
+h3 {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+/* ---- terminal panel ---- */
+.term {
+  background: var(--term-bg);
+  border: 1px solid var(--term-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.term canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: auto;
+}
+.term-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--term-border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--term-muted);
+  letter-spacing: 0.06em;
+}
+.term-bar .dots { display: flex; gap: 5px; margin-right: 4px; }
+.term-bar .dots i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #3a404c; display: block;
+}
+.term-bar .right { margin-left: auto; }
+
+.scene-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+.scene-cap {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px 0 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.scene-cap b { font-weight: 500; color: var(--fg); }
+
+/* ---- sprite block ---- */
+.sprite-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+  align-items: end;
+}
+.sprite-cell { text-align: center; }
+.sprite-cell canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--term-bg);
+  border-radius: 4px;
+}
+.sprite-cell figcaption {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 8px;
+  letter-spacing: 0.03em;
+}
+
+/* ---- palette ---- */
+.palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.swatch {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.swatch .chip { height: 44px; }
+.swatch .meta {
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.swatch .meta b { display: block; font-weight: 600; letter-spacing: 0.02em; }
+.swatch .meta span { color: var(--faint); }
+
+/* ---- controls ---- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+.controls button {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 13px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.controls button:hover { border-color: var(--faint); color: var(--fg); }
+.controls button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.controls button:focus-visible {
+  outline: 2px solid var(--cool);
+  outline-offset: 2px;
+}
+
+/* ---- real char panel ---- */
+.chars {
+  background: var(--term-bg);
+  border: 1px solid var(--term-border);
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+}
+.chars pre {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 17px;
+  line-height: 17px;
+  letter-spacing: 0;
+  white-space: pre;
+  display: inline-block;
+}
+
+/* ---- table ---- */
+.table-scroll { overflow-x: auto; margin-top: 6px; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 520px;
+  font-size: 14.5px;
+}
+th, td {
+  text-align: left;
+  padding: 10px 14px 10px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 500;
+  padding-top: 0;
+}
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td strong { font-weight: 600; }
+
+/* ---- notes ---- */
+.note {
+  border-left: 2px solid var(--accent);
+  padding: 2px 0 2px 16px;
+  margin: 24px 0 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  max-width: 68ch;
+}
+.note b { color: var(--fg); font-weight: 500; }
+
+.prose { max-width: 66ch; }
+.prose p { margin: 0 0 16px; }
+.prose strong { font-weight: 600; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--sunken);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 560px) {
+  header { padding-block: 36px 28px; margin-bottom: 40px; }
+  section { margin-bottom: 48px; }
+  .scene-grid { grid-template-columns: 1fr; }
+  .sprite-row { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .palette { grid-template-columns: repeat(2, 1fr); }
+  .chars pre { font-size: 12px; line-height: 12px; }
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">World 1-1 · 方案 B · 粗描边版</p>
+  <h1>带颜色的那一版</h1>
+  <p class="lede">
+    下面每一个画面都是按游戏真正会输出的方式画的：<strong>每个终端单元被拆成上下两个方形像素</strong>，
+    上半部分填前景色、下半部分填背景色，字符用 <code>▀</code>。所以这些颜色就是你将要在终端里看到的颜色，
+    不是示意图。
+  </p>
+</header>
+
+<section>
+  <h2><span class="num">01</span>精灵原型</h2>
+  <p class="sub">
+    B 版的核心改动是给整个轮廓加了一圈深色描边（<code>K</code>）。终端背景是近黑色，角色靠这圈边从背景里被"抠"出来。
+    下面按原生 16×16 绘制，左边是源图，右边是终端里实际的样子。
+  </p>
+
+  <div class="sprite-row" id="spriteRow"></div>
+
+  <div class="note">
+    <b>为什么不是纯色块。</b> 16×16 里能塞下的识别特征只有五个：帽檐向右多出的一格、发际线下那颗眼睛、
+    向右凸出两格的大鼻子、胡子那条横线、背带裤中间的蓝色竖条。少任何一个，看上去就退化成一个戴帽子的方块。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">02</span>关卡画面</h2>
+  <p class="sub">
+    以下是 120×40 的终端窗口，每格 12 个美术像素——也就是 <code>-scale small</code> 模式，横向可见 10 格、纵向约 6.7 格。
+    画面按 8 fps 循环，能看出走路、金币旋转和敌人的节奏。
+  </p>
+
+  <div class="scene-grid">
+    <div>
+      <div class="term"><div class="term-bar"><span class="dots"><i></i><i></i><i></i></span>1-1 开场<span class="right">120 × 40</span></div><canvas id="scA" width="480" height="320"></canvas></div>
+      <p class="scene-cap"><b>开场安全区</b><span>无敌人 · 第一个方块只出金币</span></p>
+    </div>
+    <div>
+      <div class="term"><div class="term-bar"><span class="dots"><i></i><i></i><i></i></span>1-1 水管群<span class="right">120 × 40</span></div><canvas id="scB" width="480" height="320"></canvas></div>
+      <p class="scene-cap"><b>三根水管</b><span>高度递增 · 可站上管顶</span></p>
+    </div>
+    <div>
+      <div class="term"><div class="term-bar"><span class="dots"><i></i><i></i><i></i></span>1-1 阶梯<span class="right">120 × 40</span></div><canvas id="scC" width="480" height="320"></canvas></div>
+      <p class="scene-cap"><b>阶梯与断层</b><span>逐级可走 · 掉下去即死</span></p>
+    </div>
+    <div>
+      <div class="term"><div class="term-bar"><span class="dots"><i></i><i></i><i></i></span>1-1 旗杆<span class="right">120 × 40</span></div><canvas id="scD" width="480" height="320"></canvas></div>
+      <p class="scene-cap"><b>旗降</b><span>相机垂直跟随 · 旗杆 9 格高</span></p>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>看第四张时注意相机。</b> 旗杆高 9 格，但画面纵向只有 6.7 格，所以镜头必须往上跟。
+    原版 NES 是 16×15 格，一眼看全；这里是一次只能看到一小块，镜头移动会更频繁。这是终端分辨率的硬约束，不是参数没调好。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">03</span>配色表</h2>
+  <p class="sub">游戏里所有颜色都从这套令牌取，绘制代码里不出现具体色值。深色主题下这套色是刻意压过饱和度的，避免在近黑背景上刺眼。</p>
+  <div class="palette" id="palette"></div>
+</section>
+
+<section>
+  <h2><span class="num">04</span>终端能力降级</h2>
+  <p class="sub">
+    同一个画面在四种终端上的样子。切一下看差异——重点是<b>形状不能丢</b>，颜色可以丢。
+  </p>
+
+  <div class="controls" id="modeCtl">
+    <button data-mode="true" aria-pressed="true">真彩色</button>
+    <button data-mode="c256" aria-pressed="false">256 色</button>
+    <button data-mode="mono" aria-pressed="false">单色</button>
+    <button data-mode="ascii" aria-pressed="false">ASCII</button>
+  </div>
+
+  <div class="term"><div class="term-bar"><span class="dots"><i></i><i></i><i></i></span><span id="modeLabel">真彩色 · 半块字符</span><span class="right">1-1 水管群</span></div><canvas id="scMode" width="480" height="320"></canvas></div>
+
+  <div class="note">
+    <b>单色下靠什么分辨。</b> 蘑菇怪是"宽盖 + 两只短脚"，乌龟是"高壳 + 伸出的头 + 长腿"，剪影高度差了一倍。
+    这是 B 版相对 A 版的另一个好处：描边在单色下依然提供轮廓，而 A 版没有描边时整块会糊成一片。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">05</span>真实字符输出</h2>
+  <p class="sub">
+    前面用画布是为了性能，这里换成真的字符——这是 tcell 实际写进终端的内容：
+    每个单元一个字 rune，前景色是上方像素，背景色是下方像素。放大到 17px 一行，与终端里的显示密度一致。
+  </p>
+  <div class="chars"><pre id="charPre"></pre></div>
+</section>
+
+<section>
+  <h2><span class="num">06</span>画面尺寸的真实账</h2>
+  <p class="sub">这一节是坏消息，但我宁愿你看完再决定。终端能提供的像素比 NES 少了六倍多。</p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>显示</th><th>方形像素</th><th>可见瓦片</th><th>马里奥占屏高</th><th>代价</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>NES 原版</td>
+          <td class="num">256 × 240<br>61 440</td>
+          <td class="num">16 × 15</td>
+          <td class="num">6.7%</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>终端 120 × 40<br><span style="color:var(--muted)">每格 12 像素</span></td>
+          <td class="num">120 × 80<br>9 600</td>
+          <td class="num">10 × 6.7</td>
+          <td class="num">15%</td>
+          <td>纵向只剩 45% · 需要垂直镜头</td>
+        </tr>
+        <tr>
+          <td>终端 160 × 50<br><span style="color:var(--muted)">每格 16 像素，原生</span></td>
+          <td class="num">160 × 100<br>16 000</td>
+          <td class="num">10 × 6.2</td>
+          <td class="num">16%</td>
+          <td>精灵最清晰 · 窗口要开很大</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <b>结论：</b> 无论怎么调，一屏看到的范围都只有原版的一半左右。能做的补偿只有两个——
+    把镜头跟随做得更顺（死区 + 预判），以及把 1-1 里需要"提前看到"的地方做得更宽（水管间距拉大、断层前留出落地视野）。
+    这两条我已经加进关卡设计约束里。
+  </div>
+</section>
+
+<footer>
+  方案 B · 16×16 母版 · 12 或 16 列/瓦片 · 待确认后补齐全套动画帧
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ palette ============ */
+  var PAL = {
+    R: "#d94a3d", // 红
+    K: "#4a3220", // 深棕描边（提亮过：原 #241408 与背景亮度相同，等于隐形）
+    S: "#f0b088", // 肤色
+    B: "#3a5fc8", // 背带裤
+    W: "#ffffff", // 眼白
+    Y: "#f0c040", // 纽扣
+    H: "#7a4a28", // 鞋 / 脚（独立中调棕，对背景与地面都留出亮度差）
+    T: "#a8692f", // 棕（敌人 / 砖 / 土）
+    D: "#c98a4b", // 浅棕（土的表层）
+    G: "#4aa848", // 龟绿
+    O: "#e0b060", // 问号块
+    C: "#f5c842", // 金币
+    M: "#e8e2d8", // 高光
+    N: "#12141a", // 天空
+    E: "#1c2028"  // 远景
+  };
+
+  /* ============ sprite helpers ============ */
+  function S(rows) {
+    var w = 0;
+    for (var i = 0; i < rows.length; i++) if (rows[i].length > w) w = rows[i].length;
+    var out = [];
+    for (var y = 0; y < rows.length; y++) {
+      var r = rows[y];
+      while (r.length < w) r += ".";
+      out.push(r);
+    }
+    return { w: w, h: out.length, rows: out };
+  }
+
+  var MARIO_IDLE = S([
+    ".....KKKKK......",
+    "....KRRRRRK.....",
+    "...KRRRRRRRK....",
+    "...KKKKKKKKK....",
+    "...KSSSSKSSK....",
+    "..KSSSSKSSKSK...",
+    "..KSSSSKSSKSK...",
+    "..KKSSSSSKKKK...",
+    "...KSSSSSSSSK...",
+    "..KKRRRBRRRKK...",
+    ".KRRRRBRRRBRRK..",
+    ".SSRRBBBBBBRSS..",
+    ".SSSBBBBBBBSSS..",
+    "..SBBBBBBBBBS...",
+    "...HHHH..HHHH...",
+    "..HHHHH..HHHHH.."
+  ]);
+
+  function withLegs(base, a, b) {
+    var rows = base.rows.slice(0, 14).concat([a, b]);
+    return S(rows);
+  }
+
+  var MARIO_W1 = withLegs(MARIO_IDLE, "...HHHHHHHHH....", "..HHHHHHHHHHH...");
+  var MARIO_W2 = withLegs(MARIO_IDLE, ".HHHH...HHHH....", "HHHHH...HHHHH...");
+
+  var MARIO_JUMP = S([
+    ".....KKKKK......",
+    "....KRRRRRK.....",
+    "...KRRRRRRRK....",
+    "...KKKKKKKKK....",
+    "...KSSSSKSSK....",
+    "..KSSSSKSSKSK...",
+    "..KSSSSKSSKSK...",
+    "..KKSSSSSKKKK...",
+    "...KSSSSSSSSK...",
+    ".SSKKRRRBRRRKKSS",
+    ".SSRRRRBRRRBRRSS",
+    "..SRRBBBBBBRR...",
+    "...SBBBBBBBB....",
+    "...BBBB..BBBB...",
+    "..HHHH....HHHH..",
+    ".HHHHH....HHHHH."
+  ]);
+
+  var GOOMBA = S([
+    "................",
+    "................",
+    ".....KKKKKK.....",
+    "...KKTTTTTTKK...",
+    "..KTTTTTTTTTTK..",
+    ".KTTWWTTTTWWTTK.",
+    ".KTTWKTTTTKWTTK.",
+    ".KTTTTTTTTTTTTK.",
+    ".KTTTTKKKKTTTTK.",
+    "..KTTTTTTTTTTK..",
+    "...KKTTTTTTKK...",
+    "....KKKKKKKK....",
+    "...TTTTTTTTTT...",
+    "..TTTTTTTTTTTT..",
+    "..HHHH....HHHH..",
+    ".HHHHH....HHHHH."
+  ]);
+
+  var KOOPA = S([
+    "................",
+    "......GGGG......",
+    ".....GGGGGG.....",
+    "....KKGGGGGK....",
+    "...KSSKGGGGK....",
+    "...KSSSSGGGK....",
+    "...KSSKGGGGK....",
+    "....KKGGGGGK....",
+    "....GGGGGGGG....",
+    "...GGKGGGGKGG...",
+    "..GGGGGGGGGGGG..",
+    "..GGKGGGGGGKGG..",
+    "..GGGGGGGGGGGG..",
+    "..GGKGGGGGGKGG..",
+    "..GGGGGGGGGGGG..",
+    "...GGKGGGGKGG...",
+    "....GGGGGGGG....",
+    "....HHHHHHHH....",
+    "...HHH....HHH...",
+    "..HHHH....HHHH.."
+  ]);
+
+  var SHELL = S([
+    "....KKKKKKKK....",
+    "..KKGGGGGGGGKK..",
+    ".KGGKGGGGGGKGGK.",
+    "KGGGKGGGGGGKGGGK",
+    "KGGGGGGGGGGGGGGK",
+    "KGGKGGGGGGGGKGGK",
+    "KGGGGGGGGGGGGGGK",
+    "KGGKGGGGGGGGKGGK",
+    "KGGGGGGGGGGGGGGK",
+    ".KGGKGGGGGGKGGK.",
+    "..KKGGGGGGGGKK..",
+    "....KKKKKKKK...."
+  ]);
+
+  var MUSHROOM = S([
+    "................",
+    ".....KKKKKK.....",
+    "...KKRRRRRRKK...",
+    "..KRRWWRRWWRRK..",
+    ".KRRWWWRRWWWRRK.",
+    ".KRWWWWWWWWWWRK.",
+    ".KRRWWWWWWWWRRK.",
+    ".KRRRWWWWWWRRRK.",
+    "..KRRRRRRRRRRK..",
+    "...KKSSSSSSKK...",
+    "....KSSSSSSK....",
+    "....KSSSSSSK....",
+    "....KSSSSSSK....",
+    "....KSSSSSSK....",
+    ".....KKKKKK.....",
+    "................"
+  ]);
+
+  /* ---- procedural tiles ---- */
+  function groundTile() {
+    var rows = [];
+    for (var y = 0; y < 16; y++) {
+      var r = "";
+      for (var x = 0; x < 16; x++) {
+        if (y < 3) r += (y === 0 || x === 0 || x === 15) ? "K" : "D";
+        else r += ((x * 7 + y * 5) % 11 === 0) ? "K" : "T";
+      }
+      rows.push(r);
+    }
+    return S(rows);
+  }
+
+  function brickTile() {
+    var rows = [];
+    for (var y = 0; y < 16; y++) {
+      var r = "";
+      for (var x = 0; x < 16; x++) {
+        var mortar = (y % 8 === 0) || (x % 8 === 0) || ((y % 8 === 4) && (x % 8 === 4));
+        if (y === 0 || x === 0 || x === 15) r += "K";
+        else if (y % 8 === 0) r += "K";
+        else if (y % 8 === 1) r += "D";
+        else if (mortar) r += "K";
+        else r += "T";
+      }
+      rows.push(r);
+    }
+    return S(rows);
+  }
+
+  function questionTile() {
+    var q = [
+      "...KKK...",
+      "..K...K..",
+      ".K.....K.",
+      ".K.....K.",
+      ".......K.",
+      "......K..",
+      ".....K...",
+      ".....K...",
+      ".........",
+      ".....K...",
+      ".....K..."
+    ];
+    var rows = [];
+    for (var y = 0; y < 16; y++) {
+      var r = "";
+      for (var x = 0; x < 16; x++) {
+        if (y === 0 || y === 15 || x === 0 || x === 15) { r += "K"; continue; }
+        if (y === 1 || y === 14 || x === 1 || x === 14) { r += "O"; continue; }
+        var qy = y - 3, qx = x - 4;
+        if (qy >= 0 && qy < q.length && qx >= 0 && qx < 8 && q[qy][qx] === "K") r += "K";
+        else r += "O";
+      }
+      rows.push(r);
+    }
+    return S(rows);
+  }
+
+  function usedTile() {
+    var rows = [];
+    for (var y = 0; y < 16; y++) {
+      var r = "";
+      for (var x = 0; x < 16; x++) {
+        if (y === 0 || y === 15 || x === 0 || x === 15) r += "K";
+        else if (y === 1 || y === 14 || x === 1 || x === 14) r += "#7a5a22";
+        else r += "#5a4420";
+      }
+      rows.push(r);
+    }
+    return S(rows);
+  }
+
+  /* 水管：总宽 36，管身两侧内缩 2px，管口占顶部 8 行且不收窄，
+     这样管口比管身宽 2px，形成原版那个"帽沿"。调用方按 x-2 放置。 */
+  function pipeTile(heightPx) {
+    var W = 36;
+    var rows = [];
+    for (var y = 0; y < heightPx; y++) {
+      var lip = y < 8;
+      var inset = lip ? 0 : 2;
+      var r = "";
+      for (var x = 0; x < W; x++) {
+        if (x < inset || x >= W - inset) { r += "."; continue; }
+        var local = x - inset;
+        var wLocal = W - inset * 2;
+        if (local === 0 || local === wLocal - 1) r += "K";
+        else if (local <= 3) r += "#6fcf7f";
+        else if (local >= wLocal - 7 && local < wLocal - 3) r += "#2d7a3e";
+        else r += "#3f9a52";
+      }
+      rows.push(r);
+    }
+    return S(rows);
+  }
+
+  var COIN_FRAMES = (function () {
+    var widths = [8, 5, 2, 5];
+    var out = [];
+    for (var f = 0; f < 4; f++) {
+      var w = widths[f];
+      var rows = [];
+      for (var y = 0; y < 16; y++) {
+        var r = "";
+        for (var x = 0; x < 16; x++) {
+          var cx = 8 - w / 2;
+          var inW = x >= cx && x < cx + w;
+          var inH = y >= 3 && y <= 12;
+          var edgeX = inW && (x === Math.floor(cx) || x === Math.ceil(cx + w) - 1);
+          var edgeY = inH && (y === 3 || y === 12);
+          if (inW && inH) {
+            if (edgeX || edgeY) r += "C";
+            else if (w >= 5 && (x === Math.floor(cx) + 1)) r += "M";
+            else r += "C";
+          } else r += ".";
+        }
+        rows.push(r);
+      }
+      out.push(S(rows));
+    }
+    return out;
+  })();
+
+  /* ============ canvas renderer ============ */
+  function makeGrid(w, h) {
+    var g = new Array(h);
+    for (var y = 0; y < h; y++) {
+      var row = new Array(w);
+      for (var x = 0; x < w; x++) row[x] = null;
+      g[y] = row;
+    }
+    return { w: w, h: h, px: g };
+  }
+
+  function resolve(c) {
+    if (!c) return null;
+    if (c.charAt(0) === "#") return c;
+    return PAL[c] || null;
+  }
+
+  function blit(grid, sp, dx, dy) {
+    for (var y = 0; y < sp.h; y++) {
+      var ty = dy + y;
+      if (ty < 0 || ty >= grid.h) continue;
+      var row = sp.rows[y];
+      for (var x = 0; x < sp.w; x++) {
+        var tx = dx + x;
+        if (tx < 0 || tx >= grid.w) continue;
+        var ch = row.charAt(x);
+        if (ch === "." || ch === " ") continue;
+        grid.px[ty][tx] = resolve(ch);
+      }
+    }
+  }
+
+  function fillRect(grid, x0, y0, w, h, color) {
+    var c = resolve(color);
+    for (var y = y0; y < y0 + h; y++) {
+      if (y < 0 || y >= grid.h) continue;
+      for (var x = x0; x < x0 + w; x++) {
+        if (x < 0 || x >= grid.w) continue;
+        grid.px[y][x] = c;
+      }
+    }
+  }
+
+  /* ---- color capability ---- */
+  var CUBE = [0, 95, 135, 175, 215, 255];
+  var X256 = (function () {
+    var out = [[0,0,0],[128,0,0],[0,128,0],[128,128,0],[0,0,128],[128,0,128],[0,128,128],[192,192,192],
+               [128,128,128],[255,0,0],[0,255,0],[255,255,0],[0,0,255],[255,0,255],[0,255,255],[255,255,255]];
+    for (var r = 0; r < 6; r++) for (var g = 0; g < 6; g++) for (var b = 0; b < 6; b++)
+      out.push([CUBE[r], CUBE[g], CUBE[b]]);
+    for (var i = 0; i < 24; i++) { var v = 8 + i * 10; out.push([v, v, v]); }
+    return out;
+  })();
+
+  var hexCache = {};
+  function hexToRgb(h) {
+    if (hexCache[h]) return hexCache[h];
+    var v = parseInt(h.slice(1), 16);
+    var o = [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+    hexCache[h] = o;
+    return o;
+  }
+  function rgbToHex(r, g, b) {
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+  function quant(h) {
+    var c = hexToRgb(h), best = 0, bestD = Infinity;
+    for (var i = 0; i < X256.length; i++) {
+      var e = X256[i];
+      var dr = c[0] - e[0], dg = c[1] - e[1], db = c[2] - e[2];
+      var d = dr * dr * 0.3 + dg * dg * 0.59 + db * db * 0.11;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return rgbToHex(X256[best][0], X256[best][1], X256[best][2]);
+  }
+  function lum(h) {
+    var c = hexToRgb(h);
+    return (c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722) / 255;
+  }
+  var MONO_LEVELS = ["#1a1d24", "#6f7480", "#c9ccd4", "#f2f4f8"];
+  function mono(h) {
+    var l = lum(h);
+    if (l < 0.16) return MONO_LEVELS[0];
+    if (l < 0.42) return MONO_LEVELS[1];
+    if (l < 0.74) return MONO_LEVELS[2];
+    return MONO_LEVELS[3];
+  }
+
+  var ASCII_RAMP = " .:-=+*#%@";
+  function asciiChar(l) {
+    var i = Math.floor(l * (ASCII_RAMP.length - 1) + 0.0001);
+    return ASCII_RAMP.charAt(Math.min(ASCII_RAMP.length - 1, Math.max(0, i)));
+  }
+
+  /* ---- draw a grid as terminal output ----
+     The art grid is wider/taller than the terminal's cell count, so every
+     output cell samples its source pixel by proportional mapping. Each cell
+     holds two virtual pixels stacked: the upper one becomes the foreground,
+     the lower one the background. */
+  var OUT_COLS = 120;
+  var OUT_ROWS = 40;
+
+  function drawTerminal(canvas, grid, mode) {
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = PAL.N;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var cw = canvas.width / OUT_COLS;
+    var ch = canvas.height / OUT_ROWS;
+    var vrows = OUT_ROWS * 2;
+
+    function sample(ox, vy) {
+      var gx = Math.min(grid.w - 1, Math.floor(ox * grid.w / OUT_COLS));
+      var gy = Math.min(grid.h - 1, Math.floor(vy * grid.h / vrows));
+      return grid.px[gy][gx] || PAL.N;
+    }
+
+    if (mode === "ascii") {
+      ctx.font = Math.floor(ch * 1.02) + 'px "IBM Plex Mono", monospace';
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      for (var ry = 0; ry < OUT_ROWS; ry++) {
+        for (var ox = 0; ox < OUT_COLS; ox++) {
+          var L = (lum(sample(ox, ry * 2)) * 0.55 + lum(sample(ox, ry * 2 + 1)) * 0.45);
+          var c = asciiChar(L);
+          if (c === " ") continue;
+          ctx.fillStyle = L > 0.5 ? "#e8eaef" : L > 0.22 ? "#8d939f" : "#4a505c";
+          ctx.fillText(c, ox * cw, ry * ch);
+        }
+      }
+      return;
+    }
+
+    for (var oy = 0; oy < OUT_ROWS; oy++) {
+      for (var x = 0; x < OUT_COLS; x++) {
+        var tc = sample(x, oy * 2);
+        var bc = sample(x, oy * 2 + 1);
+        if (mode === "c256") { tc = quant(tc); bc = quant(bc); }
+        else if (mode === "mono") { tc = mono(tc); bc = mono(bc); }
+        if (tc === bc) {
+          ctx.fillStyle = tc;
+          ctx.fillRect(x * cw, oy * ch, cw + 0.5, ch + 0.5);
+        } else {
+          ctx.fillStyle = tc;
+          ctx.fillRect(x * cw, oy * ch, cw + 0.5, ch / 2 + 0.25);
+          ctx.fillStyle = bc;
+          ctx.fillRect(x * cw, oy * ch + ch / 2, cw + 0.5, ch / 2 + 0.25);
+        }
+      }
+    }
+  }
+
+  /* ============ scene construction ============ */
+  var COLS_PER_TILE = 12;
+  /* Art grid: 160 x 108 art px = 10 x 6.75 tiles at 16 art px per tile.
+     A 120x40 terminal renders 120 cols x 80 virtual rows, so the grid is
+     sampled proportionally (4:3 horizontally) — the same 16→12 downsample
+     the game does in -scale small. */
+  var ART_W = 160;
+  var ART_H = 107;
+  var GROUND_Y = 75;
+
+  var T_GROUND = groundTile();
+  var T_BRICK = brickTile();
+  var T_Q = questionTile();
+  var T_USED = usedTile();
+
+  function baseScene() {
+    var g = makeGrid(ART_W, ART_H);
+    // far band
+    for (var y = 0; y < GROUND_Y; y++) {
+      var shade = y > GROUND_Y - 10 ? PAL.E : PAL.N;
+      for (var x = 0; x < ART_W; x++) g.px[y][x] = shade;
+    }
+    return g;
+  }
+
+  function addGround(g, fromX, toX) {
+    for (var x = fromX; x < toX; x += 16) {
+      blit(g, T_GROUND, x, GROUND_Y);
+      for (var y = GROUND_Y + 16; y < ART_H; y += 16) blit(g, T_GROUND, x, y);
+    }
+  }
+
+  function hud(g, score, coins, time) {
+    g.hud = "MARIO " + score + "    c x" + coins + "              WORLD 1-1   TIME " + time;
+  }
+
+  function sceneA(frame) {
+    var g = baseScene();
+    addGround(g, 0, ART_W);
+    blit(g, T_Q, 96, 28);
+    blit(g, T_BRICK, 112, 28);
+    blit(g, T_Q, 128, 28);
+    blit(g, COIN_FRAMES[frame % 4], 104, 48);
+    blit(g, COIN_FRAMES[(frame + 2) % 4], 120, 48);
+    var walkFrames = [MARIO_IDLE, MARIO_W1, MARIO_IDLE, MARIO_W2];
+    var sp = frame % 12 < 6 ? walkFrames[frame % 4] : MARIO_IDLE;
+    blit(g, sp, 28, GROUND_Y - 16);
+    hud(g, "000000", "00", "384");
+    return g;
+  }
+
+  function sceneB(frame) {
+    var g = baseScene();
+    addGround(g, 0, ART_W);
+    var pipe = function (h, x) {
+      var p = pipeTile(h);
+      blit(g, p, x, GROUND_Y - h);
+    };
+    pipe(32, 42);
+    pipe(48, 73);
+    pipe(64, 108);
+    blit(g, GOOMBA, 60, GROUND_Y - 16);
+    blit(g, COIN_FRAMES[frame % 4], 104, 40);
+    var sp = frame % 10 < 5 ? MARIO_IDLE : MARIO_W1;
+    blit(g, sp, 16, GROUND_Y - 16);
+    hud(g, "001200", "03", "352");
+    return g;
+  }
+
+  function sceneC(frame) {
+    var g = baseScene();
+    addGround(g, 0, 96);
+    addGround(g, 112, ART_W);
+    // gap shadow
+    for (var y = GROUND_Y + 8; y < ART_H; y++) {
+      for (var x = 96; x < 112; x++) g.px[y][x] = ((x + y) % 4 === 0) ? "#3a2418" : "#241408";
+    }
+    // stairs
+    for (var i = 0; i < 4; i++) {
+      for (var yy = 0; yy < (i + 1) * 16; yy++) {
+        fillRect(g, 8 + i * 16, GROUND_Y - yy - 1, 16, 1, i % 2 ? "T" : "D");
+      }
+    }
+    blit(g, GOOMBA, 60, GROUND_Y - 16);
+    var sp = frame % 10 < 5 ? MARIO_JUMP : MARIO_IDLE;
+    blit(g, sp, 76, GROUND_Y - 44);
+    hud(g, "002400", "07", "301");
+    return g;
+  }
+
+  function sceneD(frame) {
+    var g = baseScene();
+    addGround(g, 0, ART_W);
+    // pole
+    var px = 128;
+    fillRect(g, px, 18, 2, GROUND_Y - 18, "M");
+    fillRect(g, px, 18, 2, 2, "K");
+    // ball on top
+    fillRect(g, px - 2, 12, 6, 6, "M");
+    // flag (slides down)
+    var flagY = 26 + Math.min(44, (frame % 40) * 1.3);
+    blit(g, S([
+      "KKKKKKKK",
+      "KTTTTTTK",
+      "KTTMTTTK",
+      "KTTTTTTK",
+      "KTTMTTTK",
+      "KTTTTTTK",
+      "KKKKKKKK"
+    ]), px - 9, Math.round(flagY));
+    blit(g, MARIO_IDLE, px - 8, Math.round(flagY) + 4);
+    // castle hint
+    fillRect(g, 144, GROUND_Y - 40, 16, 40, "E");
+    hud(g, "008900", "12", "262");
+    return g;
+  }
+
+  /* ============ HUD drawing ============ */
+  function drawHudText(canvas, text) {
+    var ctx = canvas.getContext("2d");
+    var h = canvas.height / OUT_ROWS;
+    ctx.font = "600 " + (h * 0.78).toFixed(1) + 'px "IBM Plex Mono", monospace';
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#e4e7ee";
+    // HUD sits on its own band, so clear it first.
+    var bandW = Math.min(canvas.width, text.length * (h * 0.62) + 16);
+    ctx.fillStyle = PAL.N;
+    ctx.fillRect(0, 0, bandW, h * 1.6);
+    ctx.fillStyle = "#e4e7ee";
+    ctx.fillText(text, 8, h * 0.85);
+  }
+
+  /* ============ real char output ============ */
+  function buildCharPanel() {
+    // Dedicated layout: 50x46 art px, its own ground line at y=30.
+    var W = 50, H = 46, GROUND = 30;
+    var g = makeGrid(W, H);
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) g.px[y][x] = PAL.N;
+    }
+    for (var gx = 0; gx < W; gx += 16) {
+      blit(g, T_GROUND, gx, GROUND);
+      for (var gy = GROUND + 16; gy < H; gy += 16) blit(g, T_GROUND, gx, gy);
+    }
+    blit(g, T_Q, 17, 2);
+    blit(g, T_BRICK, 34, 2);
+    blit(g, MARIO_IDLE, 0, GROUND - 16);
+    blit(g, MUSHROOM, 17, GROUND - 16);
+    blit(g, GOOMBA, 34, GROUND - 16);
+
+    var lines = [];
+    for (var y = 0; y < H; y += 2) {
+      var line = "";
+      for (var x = 0; x < W; x++) {
+        var top = g.px[y][x] || PAL.N;
+        var bot = g.px[y + 1][x] || PAL.N;
+        line += "<span style=\"color:" + top + ";background:" + bot + "\">▀</span>";
+      }
+      lines.push(line);
+    }
+    document.getElementById("charPre").innerHTML = lines.join("\n");
+  }
+
+  /* ============ palette panel ============ */
+  function buildPalette() {
+    var entries = [
+      ["R", "红", "帽子 / 上衣"],
+      ["K", "描边", "轮廓线（提亮过）"],
+      ["H", "鞋棕", "鞋 / 敌人的脚"],
+      ["S", "肤色", "脸 / 手"],
+      ["B", "蓝", "背带裤"],
+      ["T", "棕", "地面 / 砖 / 敌人"],
+      ["D", "浅棕", "地表 / 砖顶"],
+      ["G", "绿", "乌龟"],
+      ["O", "金", "问号块"],
+      ["C", "亮金", "金币"],
+      ["N", "天", "背景"]
+    ];
+    var html = "";
+    for (var i = 0; i < entries.length; i++) {
+      var k = entries[i][0];
+      html += '<div class="swatch"><div class="chip" style="background:' + PAL[k] + '"></div>' +
+        '<div class="meta"><b>' + entries[i][1] + '</b><span>' + PAL[k] + '</span><br><span>' + entries[i][2] + '</span></div></div>';
+    }
+    document.getElementById("palette").innerHTML = html;
+  }
+
+  /* ============ sprite row ============ */
+  function drawSpriteCanvas(canvas, sp, targetH) {
+    var ctx = canvas.getContext("2d");
+    // Square pixels: one art pixel is the same size on both axes, so a
+    // 16x20 sprite is drawn taller than it is wide, not stretched to a box.
+    var py = targetH / sp.h;
+    var px = py;
+    canvas.width = Math.round(sp.w * px);
+    canvas.height = Math.round(sp.h * py);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = PAL.N;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (var y = 0; y < sp.h; y++) {
+      for (var x = 0; x < sp.w; x++) {
+        var ch = sp.rows[y].charAt(x);
+        if (ch === "." || ch === " ") continue;
+        ctx.fillStyle = resolve(ch);
+        ctx.fillRect(x * px, y * py, px + 0.4, py + 0.4);
+      }
+    }
+  }
+
+  function buildSpriteRow() {
+    var row = document.getElementById("spriteRow");
+    var items = [
+      { sp: MARIO_IDLE, label: "站立", sub: "16×16" },
+      { sp: MARIO_W1, label: "行走 A", sub: "16×16" },
+      { sp: MARIO_JUMP, label: "跳跃", sub: "16×16" },
+      { sp: GOOMBA, label: "蘑菇怪", sub: "16×16" },
+      { sp: KOOPA, label: "乌龟", sub: "16×20" },
+      { sp: SHELL, label: "龟壳", sub: "16×12" }
+    ];
+    items.forEach(function (it) {
+      var cell = document.createElement("figure");
+      cell.className = "sprite-cell";
+      cell.style.margin = "0";
+      var c = document.createElement("canvas");
+      drawSpriteCanvas(c, it.sp, 200);
+      c.style.width = "";
+      var cap = document.createElement("figcaption");
+      cap.textContent = it.label + " · " + it.sub;
+      cell.appendChild(c);
+      cell.appendChild(cap);
+      row.appendChild(cell);
+    });
+  }
+
+  /* ============ animation loop ============ */
+  var scenes = [
+    { el: null, build: sceneA },
+    { el: null, build: sceneB },
+    { el: null, build: sceneC },
+    { el: null, build: sceneD }
+  ];
+  var modeCanvas = null;
+  var currentMode = "true";
+  var frame = 0;
+  var last = 0;
+  var INTERVAL = 125; // 8 fps
+
+  function renderAll() {
+    scenes.forEach(function (s) {
+      var g = s.build(frame);
+      drawTerminal(s.el, g, "true");
+      if (g.hud) drawHudText(s.el, g.hud);
+    });
+    if (modeCanvas) {
+      var g = sceneB(frame);
+      drawTerminal(modeCanvas, g, currentMode);
+      if (currentMode !== "ascii" && g.hud) drawHudText(modeCanvas, g.hud);
+    }
+  }
+
+  function tick(ts) {
+    if (!last) last = ts;
+    if (ts - last >= INTERVAL) {
+      frame++;
+      last = ts;
+      renderAll();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  var reduceMotion = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ============ boot ============ */
+  buildSpriteRow();
+  buildPalette();
+  buildCharPanel();
+
+  scenes[0].el = document.getElementById("scA");
+  scenes[1].el = document.getElementById("scB");
+  scenes[2].el = document.getElementById("scC");
+  scenes[3].el = document.getElementById("scD");
+  modeCanvas = document.getElementById("scMode");
+
+  var modeLabel = document.getElementById("modeLabel");
+  var LABELS = {
+    "true": "真彩色 · 半块字符",
+    "c256": "256 色 · 量化降级",
+    "mono": "单色 · 亮度三档",
+    "ascii": "ASCII · 纵向分辨率减半"
+  };
+
+  var ctl = document.getElementById("modeCtl");
+  ctl.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    currentMode = b.getAttribute("data-mode");
+    Array.prototype.forEach.call(ctl.querySelectorAll("button"), function (btn) {
+      btn.setAttribute("aria-pressed", btn === b ? "true" : "false");
+    });
+    modeLabel.textContent = LABELS[currentMode];
+    renderAll();
+  });
+
+  renderAll();
+  if (!reduceMotion) requestAnimationFrame(tick);
+})();
+</script>

@@ -1,0 +1,138 @@
+{
+ "name": "1-1",
+ "world": "1-1",
+ "width": 212,
+ "height": 15,
+ "timeLimit": 400,
+ "spawn": {
+  "x": 2,
+  "y": 12
+ },
+ "flag": {
+  "x": 198,
+  "topY": 2,
+  "bottomY": 12
+ },
+ "rows": [
+  "                                                                                                                                                                                                                    ",
+  "                                                                                                                                                                                                                    ",
+  "                                                                                                                                                                                                      T             ",
+  "                                                                                                                                                                                                      F             ",
+  "                                                                                                                                                                                                      F             ",
+  "                      ?                                                         ?                                                                                                                     F             ",
+  "                                                                                                                                                                                                      F             ",
+  "                                                                                        o                                                                                                             F             ",
+  "                                                                                       o o                                                                     H                                      F             ",
+  "                ?   B?B?B                     []         []     BB?B         BBBBBBB          B?BB                                       H   H                HH                                      F             ",
+  "                                      []      {}         {}                                                                             HH   HH              HHH                                      F             ",
+  "                            []        {}      {}         {}                                                                            HHH   HHH            HHHH                                      F             ",
+  "                            {}        {}      {}         {}                                                                           HHHH   HHHH          HHHHH                                      F             ",
+  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+ ],
+ "contents": [
+  {
+   "x": 16,
+   "y": 9,
+   "kind": "coin",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 21,
+   "y": 9,
+   "kind": "mushroom",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 23,
+   "y": 9,
+   "kind": "coin",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 22,
+   "y": 5,
+   "kind": "coin",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 66,
+   "y": 9,
+   "kind": "coin",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 64,
+   "y": 5,
+   "kind": "coin",
+   "count": 1,
+   "hidden": true
+  },
+  {
+   "x": 80,
+   "y": 5,
+   "kind": "coin",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 95,
+   "y": 9,
+   "kind": "star",
+   "count": 1,
+   "hidden": false
+  }
+ ],
+ "entities": [
+  {
+   "kind": "goomba",
+   "x": 22,
+   "y": 12
+  },
+  {
+   "kind": "goomba",
+   "x": 40,
+   "y": 12
+  },
+  {
+   "kind": "goomba",
+   "x": 51,
+   "y": 12
+  },
+  {
+   "kind": "goomba",
+   "x": 52,
+   "y": 12
+  },
+  {
+   "kind": "goomba",
+   "x": 80,
+   "y": 12
+  },
+  {
+   "kind": "goomba",
+   "x": 97,
+   "y": 12
+  },
+  {
+   "kind": "goomba",
+   "x": 98,
+   "y": 12
+  },
+  {
+   "kind": "koopa",
+   "x": 110,
+   "y": 12
+  },
+  {
+   "kind": "koopa",
+   "x": 125,
+   "y": 12
+  }
+ ]
+}

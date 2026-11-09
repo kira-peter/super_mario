@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小人方案对比</title>
+<style>
+:root {
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --fg: #1c1d20;
+  --muted: #65676d;
+  --border: #dedbd6;
+  --accent: #c0392b;
+  --good: #2f7d4f;
+  --warn: #9a6a12;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a; --good: #6fbf86; --warn: #e0b060;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.6 var(--font);
+  padding: 32px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
+
+.bar {
+  display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center;
+  padding: 12px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 22px;
+}
+.bar .group { display: flex; gap: 6px; align-items: center; }
+.bar .label { color: var(--muted); font-size: 13px; margin-right: 4px; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+
+.grid {
+  display: grid; gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.card header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.card h2 { font-size: 16px; margin: 0; }
+.tag { font-size: 12px; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 6px; white-space: nowrap; }
+canvas { display: block; image-rendering: pixelated; background: #12141a; border-radius: 3px; }
+canvas.big { width: 100%; height: auto; }
+.row { display: flex; gap: 12px; align-items: center; }
+.row .cap { color: var(--muted); font-size: 12px; }
+ul { margin: 0; padding: 0; list-style: none; font-size: 13.5px; display: grid; gap: 3px; }
+li.pro::before { content: "＋ "; color: var(--good); font-weight: 600; }
+li.con::before { content: "－ "; color: var(--warn); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); margin-top: 26px; }
+.sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; border: 1px solid rgba(128,128,128,.35); }
+.note { color: var(--muted); font-size: 13px; margin: 22px 0 0; max-width: 78ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>小人方案对比</h1>
+  <p class="lede">
+    每个场景是一格 4×4 的瓦片尺度：地面、砖块、问号块和小人用同一套游戏配色，直接渲染，没有做任何美化。
+    上方大图是放大后的样子，左下角那块是接近终端里的真实大小。
+  </p>
+
+  <div class="bar">
+    <div class="group" role="group" aria-label="姿态">
+      <span class="label">姿态</span>
+      <button data-pose="idle" aria-pressed="false">站立</button>
+      <button data-pose="walk" aria-pressed="true">走路</button>
+      <button data-pose="jump" aria-pressed="false">跳跃</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="grid"> 显示像素网格</label>
+    <label class="chk"><input type="checkbox" id="pause"> 暂停动画</label>
+  </div>
+
+  <div class="grid" id="cards"></div>
+
+  <div class="legend" aria-label="色板">
+    <span><i class="sw" style="background:#d94a3d"></i>红 帽子/上衣</span>
+    <span><i class="sw" style="background:#3a5fc8"></i>蓝 背带裤</span>
+    <span><i class="sw" style="background:#f0b088"></i>肤色 脸/手</span>
+    <span><i class="sw" style="background:#8a5a30"></i>鞋</span>
+    <span><i class="sw" style="background:#4a3220"></i>深色描边</span>
+    <span><i class="sw" style="background:#e8dcc8"></i>浅色描边（仅方案 4）</span>
+    <span><i class="sw" style="background:#12141a"></i>天空</span>
+  </div>
+
+  <p class="note">
+    「现状」和「方案 1」不是手画的：它们都是把现有的 8×8 小人缩成 4×4，区别只在取哪个点。
+    方案 1 的结果是算法算出来的，原图本身左右不对称，所以压出来也偏一边，这一点没有修饰。
+    方案 2、3、4 是我逐像素手画的。
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PAL = {
+    R: "#d94a3d", B: "#3a5fc8", s: "#f0b088", h: "#8a5a30",
+    K: "#4a3220", L: "#e8dcc8"
+  };
+  var SKY = "#12141a", GROUND = "#a8692f", EDGE = "#c98a4b",
+      BRICK = "#a8643c", QBLOCK = "#e0b060", OUT = "#4a3220";
+
+  /* The 8x8 sprites the game ships today (pkg/render/spritesets.go). */
+  var S8 = {
+    idle:  ["..KKKK..", ".KRRRRK.", ".KssKsK.", ".KssssK.", "KRRBRRK.", "KBBBBBK.", ".KhhhK..", ".hh.hh.."],
+    walkA: ["..KKKK..", ".KRRRRK.", ".KssKsK.", ".KssssK.", "KRRBRRK.", "KBBBBBK.", "Khh.hhK.", "h...h..."],
+    walkB: ["..KKKK..", ".KRRRRK.", ".KssKsK.", ".KssssK.", "KRRBRRK.", "KBBBBBK.", ".KhhhK..", ".hh..hh."],
+    jump:  [".K.KKK.K", ".KKRRRKK", ".KssKsK.", ".KssssK.", "KRRBRRK.", "KBBBBBK.", ".KhhhK..", ".hh.hh.."]
+  };
+
+  /* Current behaviour: take one fixed pixel out of every 2x2 block. */
+  function nearest(rows) {
+    var out = [];
+    for (var y = 0; y < 4; y++) {
+      var line = "";
+      for (var x = 0; x < 4; x++) line += rows[y * 2].charAt(x * 2);
+      out.push(line);
+    }
+    return out;
+  }
+
+  /* Option 1: in each 2x2 block keep the most common of the four character
+     colours; ties go to red, blue, skin, shoe in that order. Outline only
+     survives if three or four of the block's pixels are outline. */
+  var ORDER = ["R", "B", "s", "h"];
+  function vote(rows) {
+    var out = [];
+    for (var by = 0; by < 4; by++) {
+      var line = "";
+      for (var bx = 0; bx < 4; bx++) {
+        var cnt = { R: 0, B: 0, s: 0, h: 0, K: 0 };
+        for (var dy = 0; dy < 2; dy++) for (var dx = 0; dx < 2; dx++) {
+          var c = rows[by * 2 + dy].charAt(bx * 2 + dx);
+          if (cnt.hasOwnProperty(c)) cnt[c]++;
+        }
+        var best = ".", n = 0;
+        for (var i = 0; i < ORDER.length; i++) {
+          if (cnt[ORDER[i]] > n) { n = cnt[ORDER[i]]; best = ORDER[i]; }
+        }
+        if (best === "." && cnt.K >= 3) best = "K";
+        line += best;
+      }
+      out.push(line);
+    }
+    return out;
+  }
+
+  function map4(fn) {
+    return { idle: fn(S8.idle), walkA: fn(S8.walkA), walkB: fn(S8.walkB), jump: fn(S8.jump) };
+  }
+
+  var OPTIONS = [
+    {
+      name: "现状", tag: "",
+      spr: map4(nearest),
+      pro: ["不用做任何事"],
+      con: ["帽子和背带裤的颜色被丢掉，只剩肤色、红块和描边", "深色描边在深色天空上几乎看不见"]
+    },
+    {
+      name: "方案 1 · 只改压缩方式", tag: "推荐（与 3 搭配）",
+      spr: map4(vote),
+      pro: ["敌人、道具、砖块一起变好，一次改完", "不用重画任何一帧"],
+      con: ["仍是 4×4，红蓝都回来了但轮廓比较散", "原图不对称，压出来会偏向一边"]
+    },
+    {
+      name: "方案 2 · 手绘 4×4", tag: "",
+      spr: {
+        idle:  [".RR.", ".ss.", "RBBR", ".hh."],
+        walkA: [".RR.", ".ss.", "RBBR", "hh.h"],
+        walkB: [".RR.", ".ss.", "RBBR", "h.hh"],
+        jump:  ["sRRs", ".ss.", "RBBR", "h..h"]
+      },
+      pro: ["每一帧都是有意设计的，腿的开合、举手都能精确控制", "左右对称，站着很稳"],
+      con: ["每个角色要单独画一套，工作量大", "红蓝只有一行，仍然有点像色块"]
+    },
+    {
+      name: "方案 3 · 加高到 4×5", tag: "推荐（与 1 搭配）",
+      spr: {
+        idle:  [".RR.", ".ss.", "RRRR", "BBBB", "h..h"],
+        walkA: [".RR.", ".ss.", "RRRR", "BBBB", "hh.h"],
+        walkB: [".RR.", ".ss.", "RRRR", "BBBB", "h.hh"],
+        jump:  ["sRRs", ".ss.", "RRRR", "BBBB", "h..h"]
+      },
+      pro: ["多出一行，红上衣和蓝裤子能分开，一眼是马里奥", "马里奥本来就比方块窄而高，比例更对"],
+      con: ["比碰撞格高 1 像素，渲染要做垂直偏移微调"]
+    },
+    {
+      name: "方案 4 · 浅色描边", tag: "",
+      spr: {
+        idle:  ["LRRL", "LssL", "RBBR", "LhhL"],
+        walkA: ["LRRL", "LssL", "RBBR", "hhLh"],
+        walkB: ["LRRL", "LssL", "RBBR", "hLhh"],
+        jump:  ["sRRs", "LssL", "RBBR", "hLLh"]
+      },
+      pro: ["轮廓从深色天空里跳出来，无彩色终端里也看得清", "改动最小"],
+      con: ["像贴纸，和原版的柔和感不一样", "所有带描边的角色都得一起换，否则风格不统一"]
+    }
+  ];
+
+  var W = 30, H = 12;           // scene size in art pixels
+  var state = { pose: "walk", t: 0, grid: false, paused: false };
+
+  var ARC = [0, -1, -2, -3, -3, -3, -2, -1];
+
+  function pickFrame(o) {
+    if (state.pose === "idle") return { rows: o.spr.idle, x: 6, dy: 0 };
+    if (state.pose === "jump") return { rows: o.spr.jump, x: 8, dy: ARC[state.t % ARC.length] };
+    var rows = (state.t % 2 === 0) ? o.spr.walkA : o.spr.walkB;
+    return { rows: rows, x: 2 + (state.t % 22), dy: 0 };
+  }
+
+  function px(ctx, z, x, y, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x * z, y * z, z, z);
+  }
+
+  function drawScene(ctx, z, o) {
+    ctx.fillStyle = SKY;
+    ctx.fillRect(0, 0, W * z, H * z);
+
+    // ground: one bright crust row on a darker body, four rows in all
+    for (var x = 0; x < W; x++) {
+      px(ctx, z, x, 8, EDGE);
+      for (var y = 9; y < 12; y++) px(ctx, z, x, y, GROUND);
+    }
+    // brick
+    for (var by = 4; by < 8; by++) for (var bx = 14; bx < 18; bx++) px(ctx, z, bx, by, BRICK);
+    for (var i = 14; i < 18; i++) { px(ctx, z, i, 4, OUT); px(ctx, z, i, 6, OUT); }
+    px(ctx, z, 14, 5, OUT); px(ctx, z, 16, 7, OUT);
+    // question block
+    for (var qy = 4; qy < 8; qy++) for (var qx = 19; qx < 23; qx++) {
+      var edge = (qy === 4 || qy === 7 || qx === 19 || qx === 22);
+      px(ctx, z, qx, qy, edge ? OUT : QBLOCK);
+    }
+    px(ctx, z, 21, 5, OUT);
+
+    // Mario, feet on the ground (row 8), shifted by the jump arc
+    var f = pickFrame(o);
+    var h = f.rows.length;
+    var top = 8 - h + f.dy;
+    for (var r = 0; r < h; r++) {
+      var line = f.rows[r];
+      for (var c = 0; c < line.length; c++) {
+        var ch = line.charAt(c);
+        if (PAL[ch]) px(ctx, z, f.x + c, top + r, PAL[ch]);
+      }
+    }
+
+    if (state.grid && z >= 10) {
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (var gx = 0; gx <= W; gx++) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, H * z); }
+      for (var gy = 0; gy <= H; gy++) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(W * z, gy * z + 0.5); }
+      ctx.stroke();
+    }
+  }
+
+  var BIG = 22, REAL = 8;
+  var cards = [];
+
+  function build() {
+    var host = document.getElementById("cards");
+    OPTIONS.forEach(function (o) {
+      var card = document.createElement("article");
+      card.className = "card";
+
+      var head = document.createElement("header");
+      var h2 = document.createElement("h2");
+      h2.textContent = o.name;
+      head.appendChild(h2);
+      if (o.tag) {
+        var tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = o.tag;
+        head.appendChild(tag);
+      }
+      card.appendChild(head);
+
+      var big = document.createElement("canvas");
+      big.className = "big";
+      big.width = W * BIG; big.height = H * BIG;
+      card.appendChild(big);
+
+      var row = document.createElement("div");
+      row.className = "row";
+      var real = document.createElement("canvas");
+      real.width = W * REAL; real.height = H * REAL;
+      real.style.width = (W * REAL) + "px"; real.style.height = (H * REAL) + "px";
+      var cap = document.createElement("span");
+      cap.className = "cap";
+      cap.textContent = "← 接近终端里的真实大小";
+      row.appendChild(real); row.appendChild(cap);
+      card.appendChild(row);
+
+      var ul = document.createElement("ul");
+      o.pro.forEach(function (t) { var li = document.createElement("li"); li.className = "pro"; li.textContent = t; ul.appendChild(li); });
+      o.con.forEach(function (t) { var li = document.createElement("li"); li.className = "con"; li.textContent = t; ul.appendChild(li); });
+      card.appendChild(ul);
+
+      host.appendChild(card);
+      cards.push({ o: o, big: big.getContext("2d"), real: real.getContext("2d") });
+    });
+  }
+
+  function paint() {
+    cards.forEach(function (c) {
+      c.big.imageSmoothingEnabled = false;
+      c.real.imageSmoothingEnabled = false;
+      drawScene(c.big, BIG, c.o);
+      drawScene(c.real, REAL, c.o);
+    });
+  }
+
+  function setPose(p) {
+    state.pose = p;
+    state.t = 0;
+    Array.prototype.forEach.call(document.querySelectorAll("button[data-pose]"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-pose") === p ? "true" : "false");
+    });
+    paint();
+  }
+
+  build();
+  paint();
+
+  Array.prototype.forEach.call(document.querySelectorAll("button[data-pose]"), function (b) {
+    b.addEventListener("click", function () { setPose(b.getAttribute("data-pose")); });
+  });
+  document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; paint(); });
+  var pauseBox = document.getElementById("pause");
+  pauseBox.addEventListener("change", function (e) { state.paused = e.target.checked; });
+
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) { pauseBox.checked = true; state.paused = true; }
+
+  setInterval(function () {
+    if (state.paused) return;
+    state.t++;
+    paint();
+  }, 140);
+})();
+</script>
+</body>
+</html>

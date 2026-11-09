@@ -1,0 +1,15 @@
+# 构建产物
+build/
+*.exe
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 编辑器
+.idea/
+.vscode/
+
+# 临时文件
+*.tmp
+*.log

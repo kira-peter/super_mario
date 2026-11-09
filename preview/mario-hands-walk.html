@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小人行走手臂</title>
+<style>
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --fg: #1c1d20; --muted: #65676d;
+  --border: #dedbd6; --accent: #c0392b; --good: #2f7d4f; --warn: #9a6a12;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a; --good: #6fbf86; --warn: #e0b060;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font);
+  padding: 32px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 16px; margin: 0; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 72ch; }
+.bar {
+  display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+  padding: 12px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 22px;
+}
+.bar .group { display: flex; gap: 6px; align-items: center; }
+.bar .label { color: var(--muted); font-size: 13px; margin-right: 4px; }
+.bar label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.card header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.tag { font-size: 12px; border-radius: 3px; padding: 0 6px; white-space: nowrap; border: 1px solid; }
+.tag.old { color: var(--muted); }
+.tag.new { color: var(--good); }
+canvas { display: block; image-rendering: pixelated; background: #12141a; border-radius: 3px; }
+canvas.fluid { width: 100%; height: auto; }
+.row { display: flex; gap: 12px; align-items: center; }
+.cap { color: var(--muted); font-size: 12px; }
+ul { margin: 0; padding: 0; list-style: none; font-size: 13.5px; display: grid; gap: 3px; }
+li.pro::before { content: "＋ "; color: var(--good); font-weight: 600; }
+li.con::before { content: "－ "; color: var(--warn); font-weight: 600; }
+section { margin-top: 30px; }
+.frames { display: flex; flex-wrap: wrap; gap: 26px; margin-top: 10px; }
+.frameset { display: flex; flex-direction: column; gap: 8px; }
+.frameset h3 { font-size: 13.5px; margin: 0; color: var(--muted); font-weight: 500; }
+.frameset .poses { display: flex; gap: 12px; }
+.frame { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.frame canvas { border: 1px solid var(--border); }
+.frame span { font-size: 12px; color: var(--muted); }
+.note { color: var(--muted); font-size: 13.5px; max-width: 78ch; margin: 12px 0 0; }
+.note b { color: var(--fg); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>小人行走手臂</h1>
+  <p class="lede">
+    行走时，前进方向那一侧的手留在肩膀，反方向的手放到腰部。一高一低，不看脸和脚也能知道往哪边走。
+    下面三个版本的差别在于站立和跳跃怎么配合。
+  </p>
+
+  <div class="bar">
+    <div class="group" role="group" aria-label="朝向">
+      <span class="label">朝向</span>
+      <button data-dir="right" aria-pressed="true">朝右</button>
+      <button data-dir="left" aria-pressed="false">朝左</button>
+    </div>
+    <div class="group" role="group" aria-label="演示">
+      <span class="label">演示</span>
+      <button data-mode="loop" aria-pressed="true">走路 → 跳跃 → 落地</button>
+      <button data-mode="walk" aria-pressed="false">只看走路</button>
+      <button data-mode="stand" aria-pressed="false">只看站立</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="grid" checked> 像素网格</label>
+    <label class="chk"><input type="checkbox" id="pause"> 暂停</label>
+  </div>
+
+  <div class="grid" id="cards"></div>
+
+  <section>
+    <h2>各版本逐帧放大（朝右）</h2>
+    <div class="frames" id="frames"></div>
+    <p class="note">
+      每个小格是一个终端像素。注意对比<b>走路和跳跃的前手</b>：「版本 B」里走路时前手在肩膀，跳跃时前手升到脸的高度，
+      两个姿势之间有一格落差；「版本 A」里两者只差在后手，辨识度弱一些。
+    </p>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PAL = { R: "#d94a3d", B: "#3a5fc8", s: "#f0b088", h: "#8a5a30" };
+  var SKY = "#12141a", GROUND = "#a8692f", EDGE = "#c98a4b",
+      BRICK = "#a8643c", OUT = "#4a3220";
+
+  /* All drawn facing right; facing left is the mirror image.
+     Rows: hat, face, shoulders, waist/trousers, trousers, feet.
+     6 wide, 5 tall. */
+
+  /* Before: both hands at the shoulders while walking. */
+  var BEFORE = {
+    stand: ["..RR..", "..ss..", "sRRRRs", ".BBBB.", ".h..h."],
+    walkA: ["..RR..", "..ss..", "sRRRRs", ".BBBB.", ".hh.h."],
+    walkB: ["..RR..", "..ss..", "sRRRRs", ".BBBB.", ".h.hh."],
+    jump:  ["..RR..", "..ss.s", ".RRRR.", "sBBBB.", ".h..h."]
+  };
+
+  /* Version A: back hand drops to the waist while walking, standing as well.
+     Jump keeps the previous drawing. */
+  var A = {
+    stand: ["..RR..", "..ss..", ".RRRRs", "sBBBB.", ".h..h."],
+    walkA: ["..RR..", "..ss..", ".RRRRs", "sBBBB.", ".hh.h."],
+    walkB: ["..RR..", "..ss..", ".RRRRs", "sBBBB.", ".h.hh."],
+    jump:  ["..RR..", "..ss.s", ".RRRR.", "sBBBB.", ".h..h."]
+  };
+
+  /* Version B: as A, but the jump lifts the front hand one row higher than the
+     walk, so jumping and walking are told apart by both hands, not one. */
+  var B = {
+    stand: A.stand,
+    walkA: A.walkA,
+    walkB: A.walkB,
+    jump:  ["..RR.s", "..ss..", ".RRRR.", "sBBBB.", ".h..h."]
+  };
+
+  /* Version C: standing keeps both hands at the shoulders (nothing is moving,
+     so there is no back or front); the waist hand only appears once walking. */
+  var C = {
+    stand: BEFORE.stand,
+    walkA: A.walkA,
+    walkB: A.walkB,
+    jump:  B.jump
+  };
+
+  var CARDS = [
+    { title: "之前", tag: "行走双手在肩", cls: "old", spr: BEFORE,
+      pro: ["左右对称，站着很稳"], con: ["要看脸和脚才能判断方向"] },
+    { title: "版本 A", tag: "后手落到腰部", cls: "new", spr: A,
+      pro: ["一高一低，不看别的也知道方向", "站立也有朝向"],
+      con: ["走路和跳跃只差后手一个位置，区分度一般"] },
+    { title: "版本 B", tag: "A + 跳跃前手更高", cls: "new", spr: B,
+      pro: ["走路和跳跃的前后手都不同，一眼能分", "方向感保留"],
+      con: ["跳跃时前手贴着帽子，要注意别和帽檐连成一块"] },
+    { title: "版本 C", tag: "站立仍双手在肩", cls: "new", spr: C,
+      pro: ["站着时对称、安静，开始走动才出现方向感", "「动 / 静」一眼可辨"],
+      con: ["站立到起步的那一帧，后手突然下移，可能显得跳"] }
+  ];
+
+  var W = 30, H = 12;
+  var state = { t: 0, grid: true, paused: false, dir: "right", mode: "loop" };
+
+  var LOOP = [];
+  var ARC = [0, -1, -2, -3, -3, -3, -2, -1];
+  for (var i = 0; i < 12; i++) LOOP.push({ pose: i % 2 ? "walkB" : "walkA", x: 2 + i, dy: 0 });
+  for (var j = 0; j < ARC.length; j++) LOOP.push({ pose: "jump", x: 14 + j, dy: ARC[j] });
+  for (var k = 0; k < 4; k++) LOOP.push({ pose: k % 2 ? "walkB" : "walkA", x: 22 + k, dy: 0 });
+  LOOP.push({ pose: "stand", x: 26, dy: 0 }, { pose: "stand", x: 26, dy: 0 });
+
+  function frameAt(t) {
+    if (state.mode === "stand") return { pose: "stand", x: 12, dy: 0 };
+    if (state.mode === "walk")  return { pose: (t % 2) ? "walkB" : "walkA", x: 2 + (t % 22), dy: 0 };
+    return LOOP[t % LOOP.length];
+  }
+
+  function mirror(rows) {
+    return rows.map(function (r) { return r.split("").reverse().join(""); });
+  }
+  function px(ctx, z, x, y, color) { ctx.fillStyle = color; ctx.fillRect(x * z, y * z, z, z); }
+  function drawSprite(ctx, z, rows, x0, y0) {
+    for (var r = 0; r < rows.length; r++)
+      for (var c = 0; c < rows[r].length; c++) {
+        var ch = rows[r].charAt(c);
+        if (PAL[ch]) px(ctx, z, x0 + c, y0 + r, PAL[ch]);
+      }
+  }
+  function gridLines(ctx, z, w, h) {
+    ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1; ctx.beginPath();
+    for (var gx = 0; gx <= w; gx++) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, h * z); }
+    for (var gy = 0; gy <= h; gy++) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(w * z, gy * z + 0.5); }
+    ctx.stroke();
+  }
+
+  function drawScene(ctx, z, spr) {
+    ctx.fillStyle = SKY; ctx.fillRect(0, 0, W * z, H * z);
+    for (var x = 0; x < W; x++) {
+      px(ctx, z, x, 8, EDGE);
+      for (var y = 9; y < 12; y++) px(ctx, z, x, y, GROUND);
+    }
+    for (var by = 4; by < 8; by++) for (var bx = 13; bx < 17; bx++) px(ctx, z, bx, by, BRICK);
+    for (var i = 13; i < 17; i++) { px(ctx, z, i, 4, OUT); px(ctx, z, i, 6, OUT); }
+    px(ctx, z, 13, 5, OUT); px(ctx, z, 15, 7, OUT);
+
+    var f = frameAt(state.t);
+    var rows = spr[f.pose], boxLeft = f.x;
+    if (state.dir === "left") { rows = mirror(rows); boxLeft = (W - 4) - f.x; }
+    var left = boxLeft - (rows[0].length - 4) / 2;
+    drawSprite(ctx, z, rows, left, 8 - rows.length + f.dy);
+    if (state.grid && z >= 10) gridLines(ctx, z, W, H);
+  }
+
+  var BIG = 20, REAL = 8, live = [];
+
+  function buildCards() {
+    var host = document.getElementById("cards");
+    CARDS.forEach(function (c) {
+      var card = document.createElement("article"); card.className = "card";
+      var head = document.createElement("header");
+      var h = document.createElement("h2"); h.textContent = c.title;
+      var tag = document.createElement("span"); tag.className = "tag " + c.cls; tag.textContent = c.tag;
+      head.appendChild(h); head.appendChild(tag); card.appendChild(head);
+
+      var big = document.createElement("canvas");
+      big.className = "fluid"; big.width = W * BIG; big.height = H * BIG; card.appendChild(big);
+
+      var row = document.createElement("div"); row.className = "row";
+      var real = document.createElement("canvas");
+      real.width = W * REAL; real.height = H * REAL;
+      real.style.width = (W * REAL) + "px"; real.style.height = (H * REAL) + "px";
+      var cap = document.createElement("span"); cap.className = "cap"; cap.textContent = "← 接近终端里的真实大小";
+      row.appendChild(real); row.appendChild(cap); card.appendChild(row);
+
+      var ul = document.createElement("ul");
+      c.pro.forEach(function (t) { var li = document.createElement("li"); li.className = "pro"; li.textContent = t; ul.appendChild(li); });
+      c.con.forEach(function (t) { var li = document.createElement("li"); li.className = "con"; li.textContent = t; ul.appendChild(li); });
+      card.appendChild(ul);
+
+      host.appendChild(card);
+      live.push({ spr: c.spr, big: big.getContext("2d"), real: real.getContext("2d") });
+    });
+  }
+
+  function buildFrames() {
+    var host = document.getElementById("frames");
+    CARDS.forEach(function (c) {
+      var set = document.createElement("div"); set.className = "frameset";
+      var h3 = document.createElement("h3"); h3.textContent = c.title + " · " + c.tag; set.appendChild(h3);
+      var poses = document.createElement("div"); poses.className = "poses";
+      [["stand", "站立"], ["walkA", "走路A"], ["walkB", "走路B"], ["jump", "跳跃"]].forEach(function (p) {
+        var rows = c.spr[p[0]], z = 18;
+        var wrap = document.createElement("div"); wrap.className = "frame";
+        var cv = document.createElement("canvas");
+        cv.width = rows[0].length * z; cv.height = rows.length * z;
+        var ctx = cv.getContext("2d");
+        ctx.fillStyle = SKY; ctx.fillRect(0, 0, cv.width, cv.height);
+        drawSprite(ctx, z, rows, 0, 0);
+        gridLines(ctx, z, rows[0].length, rows.length);
+        var lab = document.createElement("span"); lab.textContent = p[1];
+        wrap.appendChild(cv); wrap.appendChild(lab); poses.appendChild(wrap);
+      });
+      set.appendChild(poses); host.appendChild(set);
+    });
+  }
+
+  function paint() {
+    live.forEach(function (c) {
+      c.big.imageSmoothingEnabled = false; c.real.imageSmoothingEnabled = false;
+      drawScene(c.big, BIG, c.spr); drawScene(c.real, REAL, c.spr);
+    });
+  }
+
+  buildCards(); buildFrames(); paint();
+
+  function bindGroup(attr, key) {
+    var btns = document.querySelectorAll("button[" + attr + "]");
+    Array.prototype.forEach.call(btns, function (b) {
+      b.addEventListener("click", function () {
+        state[key] = b.getAttribute(attr); state.t = 0;
+        Array.prototype.forEach.call(btns, function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+        paint();
+      });
+    });
+  }
+  bindGroup("data-dir", "dir");
+  bindGroup("data-mode", "mode");
+
+  document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; paint(); });
+  var pauseBox = document.getElementById("pause");
+  pauseBox.addEventListener("change", function (e) { state.paused = e.target.checked; });
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    pauseBox.checked = true; state.paused = true;
+  }
+  setInterval(function () { if (!state.paused) { state.t++; paint(); } }, 150);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小人腿部</title>
+<style>
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --fg: #1c1d20; --muted: #65676d;
+  --border: #dedbd6; --accent: #c0392b; --good: #2f7d4f; --warn: #9a6a12;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a; --good: #6fbf86; --warn: #e0b060;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font);
+  padding: 32px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 16px; margin: 0; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 72ch; }
+.bar {
+  display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+  padding: 12px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 22px;
+}
+.bar .group { display: flex; gap: 6px; align-items: center; }
+.bar .label { color: var(--muted); font-size: 13px; margin-right: 4px; }
+.bar label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.card header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.tag { font-size: 12px; border-radius: 3px; padding: 0 6px; white-space: nowrap; border: 1px solid; }
+.tag.old { color: var(--muted); }
+.tag.new { color: var(--good); }
+canvas { display: block; image-rendering: pixelated; background: #12141a; border-radius: 3px; }
+canvas.fluid { width: 100%; height: auto; }
+.row { display: flex; gap: 12px; align-items: center; }
+.cap { color: var(--muted); font-size: 12px; }
+ul { margin: 0; padding: 0; list-style: none; font-size: 13.5px; display: grid; gap: 3px; }
+li.pro::before { content: "＋ "; color: var(--good); font-weight: 600; }
+li.con::before { content: "－ "; color: var(--warn); font-weight: 600; }
+section { margin-top: 28px; }
+.frames { display: flex; flex-wrap: wrap; gap: 30px; margin-top: 10px; }
+.frameset { display: flex; flex-direction: column; gap: 8px; }
+.frameset h3 { font-size: 13.5px; margin: 0; color: var(--muted); font-weight: 500; }
+.poses { display: flex; gap: 10px; align-items: flex-end; }
+.frame { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.frame canvas { border: 1px solid var(--border); }
+.frame span { font-size: 12px; color: var(--muted); }
+.note { color: var(--muted); font-size: 13.5px; max-width: 78ch; margin: 12px 0 0; }
+.note b { color: var(--fg); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>小人腿部</h1>
+  <p class="lede">
+    脚上面加一层腿，脚步更灵动。腿、脚各占一行，走路时腿一前一后迈开，脚跟着落地。
+    左边是现在的版本（没有腿），中间和右边是两种加腿的方法。
+  </p>
+
+  <div class="bar">
+    <div class="group" role="group" aria-label="朝向">
+      <span class="label">朝向</span>
+      <button data-dir="right" aria-pressed="true">朝右</button>
+      <button data-dir="left" aria-pressed="false">朝左</button>
+    </div>
+    <div class="group" role="group" aria-label="演示">
+      <span class="label">演示</span>
+      <button data-mode="loop" aria-pressed="true">走路 → 跳跃 → 落地</button>
+      <button data-mode="walk" aria-pressed="false">只看走路</button>
+      <button data-mode="stand" aria-pressed="false">只看站立</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="grid" checked> 像素网格</label>
+    <label class="chk"><input type="checkbox" id="pause"> 暂停</label>
+  </div>
+
+  <div class="grid" id="cards"></div>
+
+  <section>
+    <h2>逐帧放大（朝右）</h2>
+    <div class="frames" id="frames"></div>
+    <p class="note">
+      <b>走路是四帧循环</b>：腿并拢 → 前腿迈出 → 腿并拢 → 后腿迈出。
+      版本 1 比现在高一行，让出一行专门画腿；版本 2 不加高，把裤子压成一行再腾出一行画腿，
+      身高不变，但裤子只剩一行，蓝色的面积变少。
+    </p>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PAL = { R: "#d94a3d", B: "#3a5fc8", s: "#f0b088", h: "#8a5a30" };
+  var SKY = "#12141a", GROUND = "#a8692f", EDGE = "#c98a4b",
+      BRICK = "#a8643c", OUT = "#4a3220";
+
+  /* Drawn facing right; facing left is the mirror image. 6 wide.
+
+     Current (5 tall): hat, face, shoulders, trousers, feet. */
+  var NOW = {
+    stand: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".h..h."],
+    walk0: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".h..h."],
+    walk1: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".hh.h."],
+    walk2: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".h..h."],
+    walk3: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".h.hh."],
+    jump:  ["..RR..", "..ss.s", ".RRRR.", "sBBBB.", ".h..h."]
+  };
+
+  /* Option 1 (6 tall): a leg row between the trousers and the feet.
+     hat, face, shoulders, trousers, legs, feet.
+     Legs are blue so they read as part of the trousers; feet are brown. */
+  var ADD = {
+    stand: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".B..B.", ".h..h."],
+    walk0: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".B..B.", ".h..h."],
+    walk1: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", "..B.B.", "..h.hh"],   /* front leg out, back leg trails */
+    walk2: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".B..B.", ".h..h."],
+    walk3: ["..RR..", "..ss..", ".RRRRs", ".sBBB.", ".B.B..", "hh.h.."],   /* back leg out, front leg trails */
+    jump:  ["..RR..", "..ss.s", ".RRRR.", "sBBBB.", ".BB.B.", ".hh.h."]
+  };
+
+  /* Option 2 (5 tall): trousers squeezed to one row, so a leg row fits without
+     making the figure taller. */
+  var SQUEEZE = {
+    stand: ["..RR..", "..ss..", "sRRRRs", ".B..B.", ".h..h."],
+    walk0: ["..RR..", "..ss..", "sRRRRs", ".B..B.", ".h..h."],
+    walk1: ["..RR..", "..ss..", "sRRRRs", "..B.B.", "..h.hh"],
+    walk2: ["..RR..", "..ss..", "sRRRRs", ".B..B.", ".h..h."],
+    walk3: ["..RR..", "..ss..", "sRRRRs", ".B.B..", "hh.h.."],
+    jump:  ["..RR..", "..ss.s", ".RRRR.", ".BB.B.", ".hh.h."]
+  };
+
+  var CARDS = [
+    { title: "现在", tag: "没有腿", cls: "old", spr: NOW,
+      pro: ["身高刚好和方块协调"], con: ["脚只能原地开合，走路显得僵"] },
+    { title: "版本 1 · 加一行腿", tag: "6 行高", cls: "new", spr: ADD,
+      pro: ["腿和脚各占一行，迈步幅度能做大", "蓝色裤子面积保留，仍然认得出是马里奥"],
+      con: ["比现在高一行，要调整渲染偏移和与碰撞盒的对应"] },
+    { title: "版本 2 · 裤子压成一行", tag: "5 行高，不变", cls: "new", spr: SQUEEZE,
+      pro: ["身高不变，不用动碰撞盒的对应"],
+      con: ["蓝色面积只剩一行，上衣下面直接是细腿，像穿了短上衣"] }
+  ];
+
+  var W = 30, H = 12;
+  var state = { t: 0, grid: true, paused: false, dir: "right", mode: "loop" };
+
+  /* Walk cycle: legs together, front leg out, together, back leg out. */
+  var CYCLE = ["walk0", "walk1", "walk2", "walk3"];
+  var LOOP = [];
+  var ARC = [0, -1, -2, -3, -3, -3, -2, -1];
+  for (var i = 0; i < 12; i++) LOOP.push({ pose: CYCLE[i % 4], x: 2 + i, dy: 0 });
+  for (var j = 0; j < ARC.length; j++) LOOP.push({ pose: "jump", x: 14 + j, dy: ARC[j] });
+  for (var k = 0; k < 4; k++) LOOP.push({ pose: CYCLE[k % 4], x: 22 + k, dy: 0 });
+  LOOP.push({ pose: "stand", x: 26, dy: 0 }, { pose: "stand", x: 26, dy: 0 });
+
+  function frameAt(t) {
+    if (state.mode === "stand") return { pose: "stand", x: 12, dy: 0 };
+    if (state.mode === "walk")  return { pose: CYCLE[t % 4], x: 2 + (t % 22), dy: 0 };
+    return LOOP[t % LOOP.length];
+  }
+
+  function mirror(rows) { return rows.map(function (r) { return r.split("").reverse().join(""); }); }
+  function px(ctx, z, x, y, c) { ctx.fillStyle = c; ctx.fillRect(x * z, y * z, z, z); }
+  function drawSprite(ctx, z, rows, x0, y0) {
+    for (var r = 0; r < rows.length; r++)
+      for (var c = 0; c < rows[r].length; c++) {
+        var ch = rows[r].charAt(c);
+        if (PAL[ch]) px(ctx, z, x0 + c, y0 + r, PAL[ch]);
+      }
+  }
+  function gridLines(ctx, z, w, h) {
+    ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1; ctx.beginPath();
+    for (var gx = 0; gx <= w; gx++) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, h * z); }
+    for (var gy = 0; gy <= h; gy++) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(w * z, gy * z + 0.5); }
+    ctx.stroke();
+  }
+
+  function drawScene(ctx, z, spr) {
+    ctx.fillStyle = SKY; ctx.fillRect(0, 0, W * z, H * z);
+    for (var x = 0; x < W; x++) {
+      px(ctx, z, x, 8, EDGE);
+      for (var y = 9; y < 12; y++) px(ctx, z, x, y, GROUND);
+    }
+    for (var by = 4; by < 8; by++) for (var bx = 13; bx < 17; bx++) px(ctx, z, bx, by, BRICK);
+    for (var i = 13; i < 17; i++) { px(ctx, z, i, 4, OUT); px(ctx, z, i, 6, OUT); }
+    px(ctx, z, 13, 5, OUT); px(ctx, z, 15, 7, OUT);
+
+    var f = frameAt(state.t);
+    var rows = spr[f.pose], boxLeft = f.x;
+    if (state.dir === "left") { rows = mirror(rows); boxLeft = (W - 4) - f.x; }
+    var left = boxLeft - (rows[0].length - 4) / 2;
+    drawSprite(ctx, z, rows, left, 8 - rows.length + f.dy);
+    if (state.grid && z >= 10) gridLines(ctx, z, W, H);
+  }
+
+  var BIG = 20, REAL = 8, live = [];
+
+  function buildCards() {
+    var host = document.getElementById("cards");
+    CARDS.forEach(function (c) {
+      var card = document.createElement("article"); card.className = "card";
+      var head = document.createElement("header");
+      var h = document.createElement("h2"); h.textContent = c.title;
+      var tag = document.createElement("span"); tag.className = "tag " + c.cls; tag.textContent = c.tag;
+      head.appendChild(h); head.appendChild(tag); card.appendChild(head);
+
+      var big = document.createElement("canvas");
+      big.className = "fluid"; big.width = W * BIG; big.height = H * BIG; card.appendChild(big);
+
+      var row = document.createElement("div"); row.className = "row";
+      var real = document.createElement("canvas");
+      real.width = W * REAL; real.height = H * REAL;
+      real.style.width = (W * REAL) + "px"; real.style.height = (H * REAL) + "px";
+      var cap = document.createElement("span"); cap.className = "cap"; cap.textContent = "← 接近终端里的真实大小";
+      row.appendChild(real); row.appendChild(cap); card.appendChild(row);
+
+      var ul = document.createElement("ul");
+      c.pro.forEach(function (t) { var li = document.createElement("li"); li.className = "pro"; li.textContent = t; ul.appendChild(li); });
+      c.con.forEach(function (t) { var li = document.createElement("li"); li.className = "con"; li.textContent = t; ul.appendChild(li); });
+      card.appendChild(ul);
+
+      host.appendChild(card);
+      live.push({ spr: c.spr, big: big.getContext("2d"), real: real.getContext("2d") });
+    });
+  }
+
+  function buildFrames() {
+    var host = document.getElementById("frames");
+    CARDS.forEach(function (c) {
+      var set = document.createElement("div"); set.className = "frameset";
+      var h3 = document.createElement("h3"); h3.textContent = c.title + " · " + c.tag; set.appendChild(h3);
+      var poses = document.createElement("div"); poses.className = "poses";
+      [["stand", "站立"], ["walk1", "迈步1"], ["walk3", "迈步2"], ["jump", "跳跃"]].forEach(function (p) {
+        var rows = c.spr[p[0]], z = 16;
+        var wrap = document.createElement("div"); wrap.className = "frame";
+        var cv = document.createElement("canvas");
+        cv.width = rows[0].length * z; cv.height = rows.length * z;
+        var ctx = cv.getContext("2d");
+        ctx.fillStyle = SKY; ctx.fillRect(0, 0, cv.width, cv.height);
+        drawSprite(ctx, z, rows, 0, 0);
+        gridLines(ctx, z, rows[0].length, rows.length);
+        var lab = document.createElement("span"); lab.textContent = p[1];
+        wrap.appendChild(cv); wrap.appendChild(lab); poses.appendChild(wrap);
+      });
+      set.appendChild(poses); host.appendChild(set);
+    });
+  }
+
+  function paint() {
+    live.forEach(function (c) {
+      c.big.imageSmoothingEnabled = false; c.real.imageSmoothingEnabled = false;
+      drawScene(c.big, BIG, c.spr); drawScene(c.real, REAL, c.spr);
+    });
+  }
+
+  buildCards(); buildFrames(); paint();
+
+  function bindGroup(attr, key) {
+    var btns = document.querySelectorAll("button[" + attr + "]");
+    Array.prototype.forEach.call(btns, function (b) {
+      b.addEventListener("click", function () {
+        state[key] = b.getAttribute(attr); state.t = 0;
+        Array.prototype.forEach.call(btns, function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+        paint();
+      });
+    });
+  }
+  bindGroup("data-dir", "dir");
+  bindGroup("data-mode", "mode");
+
+  document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; paint(); });
+  var pauseBox = document.getElementById("pause");
+  pauseBox.addEventListener("change", function (e) { state.paused = e.target.checked; });
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    pauseBox.checked = true; state.paused = true;
+  }
+  setInterval(function () { if (!state.paused) { state.t++; paint(); } }, 150);
+})();
+</script>
+</body>
+</html>

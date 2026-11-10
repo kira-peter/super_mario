@@ -77,60 +77,94 @@ func TestBigHeroHasTheAgreedBody(t *testing.T) {
 	}
 }
 
-// TestJumpGivesEachHandOneMoreCell is the jump rule: each hand is two cells
-// joined at a bend, and nothing is left floating.
-//
-// The front hand (the right one, facing right) keeps its walking cell exactly
-// where it was and grows one cell upwards. The back hand does not: it moves
-// from the tucked-in column out to the edge as it drops to the waist, and
-// gains a cell above it. That is how the design was drawn.
-func TestJumpGivesEachHandOneMoreCell(t *testing.T) {
-	stand := Hero(true, HeroStand, 0).Sprite.Rows
-	jump := Hero(true, HeroJump, 0).Sprite.Rows
+// handCells returns the skin cells that are hands: every skin cell in the body
+// rows outside the head's columns. The head is columns 2-3 on the small figure
+// and 2-4 on the big one, and the neck of the big figure sits in the middle of
+// the head's columns, so it never counts.
+func handCells(rows []string, big bool) [][2]int {
+	lo, hi, bodyRows := 2, 3, 5 // small: five body rows above the wheel
+	if big {
+		lo, hi, bodyRows = 2, 4, 8
+	}
+	var out [][2]int
+	for y := 0; y < bodyRows; y++ {
+		for x, c := range rows[y] {
+			if c == 'S' && (x < lo || x > hi) {
+				out = append(out, [2]int{y, x})
+			}
+		}
+	}
+	return out
+}
 
-	skin := func(rows []string) [][2]int {
-		var out [][2]int
-		for y := 3; y < 7; y++ { // from the neck row down; the head does not count
-			for x, c := range rows[y] {
-				if c == 'S' && !(y == 3 && x == 3) { // the neck is not a hand
-					out = append(out, [2]int{y, x})
+// TestJumpArms is the jump rule as drawn. The red row runs the full width, and
+// each hand is a single skin cell at one end of it: the front hand moves up one
+// row from where it was walking, in the same column, and the back hand stays on
+// its waist row but moves one column out to the edge. Nothing is left floating.
+func TestJumpArms(t *testing.T) {
+	for _, big := range []bool{false, true} {
+		stand := Hero(big, HeroStand, 0).Sprite.Rows
+		jump := Hero(big, HeroJump, 0).Sprite.Rows
+		hs, hj := handCells(stand, big), handCells(jump, big)
+
+		if len(hs) != 2 || len(hj) != 2 {
+			t.Fatalf("big=%v: %d hand cells standing and %d jumping, want 2 each (one per hand)",
+				big, len(hs), len(hj))
+		}
+		// The right-hand cell is the front hand, the left-hand one the back hand.
+		front := func(c [][2]int) [2]int {
+			if c[0][1] > c[1][1] {
+				return c[0]
+			}
+			return c[1]
+		}
+		back := func(c [][2]int) [2]int {
+			if c[0][1] > c[1][1] {
+				return c[1]
+			}
+			return c[0]
+		}
+		fs, fj := front(hs), front(hj)
+		bs, bj := back(hs), back(hj)
+
+		if fj[1] != fs[1] || fj[0] != fs[0]-1 {
+			t.Errorf("big=%v: the front hand went from row %d col %d to row %d col %d, want one row up in the same column",
+				big, fs[0], fs[1], fj[0], fj[1])
+		}
+		if bj[0] != bs[0] || bj[1] != bs[1]-1 {
+			t.Errorf("big=%v: the back hand went from row %d col %d to row %d col %d, want the same row and one column out",
+				big, bs[0], bs[1], bj[0], bj[1])
+		}
+
+		// Nothing floats: every hand touches the sleeve or the trousers.
+		for _, cell := range hj {
+			y, x := cell[0], cell[1]
+			touches := false
+			for _, d := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+				ny, nx := y+d[0], x+d[1]
+				if ny < 0 || ny >= len(jump) || nx < 0 || nx >= len(jump[ny]) {
+					continue
+				}
+				if c := jump[ny][nx]; c == 'R' || c == 'B' {
+					touches = true
 				}
 			}
-		}
-		return out
-	}
-	if got := len(skin(jump)) - len(skin(stand)); got != 2 {
-		t.Errorf("the jump adds %d hand cells, want 2 (one per hand)", got)
-	}
-
-	// Front hand: its walking cell, row 4 column 6, does not move.
-	if stand[4][6] != 'S' || jump[4][6] != 'S' {
-		t.Error("the front hand's walking cell moved on the jump")
-	}
-	// ...and the new cell is directly above it, in the neck row.
-	if jump[3][6] != 'S' {
-		t.Error("the front hand has no cell above its walking cell on the jump")
-	}
-	// Back hand: it sits in the outer column on the jump, two cells tall.
-	if jump[4][0] != 'S' || jump[5][0] != 'S' {
-		t.Error("the back hand is not two cells tall in the outer column on the jump")
-	}
-
-	// Every hand cell touches the body or another hand cell: nothing floats.
-	for _, cell := range skin(jump) {
-		y, x := cell[0], cell[1]
-		touches := false
-		for _, d := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
-			ny, nx := y+d[0], x+d[1]
-			if ny < 0 || ny >= len(jump) || nx < 0 || nx >= len(jump[ny]) {
-				continue
-			}
-			if c := jump[ny][nx]; c == 'R' || c == 'B' || c == 'S' {
-				touches = true
+			if !touches {
+				t.Errorf("big=%v: the hand at row %d col %d touches no part of the body", big, y, x)
 			}
 		}
-		if !touches {
-			t.Errorf("hand cell at row %d col %d touches nothing", y, x)
+	}
+}
+
+// TestJumpSleeveRunsTheFullWidth checks the red row is unbroken on the jump.
+func TestJumpSleeveRunsTheFullWidth(t *testing.T) {
+	for _, c := range []struct {
+		big bool
+		row int
+	}{{false, 2}, {true, 4}} {
+		row := Hero(c.big, HeroJump, 0).Sprite.Rows[c.row]
+		if strings.Trim(row, "R") != "" {
+			t.Errorf("big=%v: the red row is %q, want it red from edge to edge", c.big, row)
 		}
 	}
 }

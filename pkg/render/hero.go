@@ -31,7 +31,9 @@ type HeroPose int
 const (
 	// HeroStand is standing or walking: the hands are by the body.
 	HeroStand HeroPose = iota
-	// HeroJump has each hand one cell longer, joined at a bend.
+	// HeroJump raises the front hand one row and drops the back hand out to
+	// the waist. The red row runs the full width, so each hand is a single
+	// skin cell touching the end of the sleeve.
 	HeroJump
 )
 
@@ -55,7 +57,7 @@ var heroSmall = map[HeroPose]heroBody{
 	HeroJump: body(
 		"..RR..",
 		"..SS.S",
-		".RRRRR",
+		"RRRRRR",
 		"SBBBB.",
 		"......",
 	),
@@ -63,9 +65,9 @@ var heroSmall = map[HeroPose]heroBody{
 
 // The big hero is 7 wide. One hat row, two face rows, a single skin-coloured
 // neck cell in the middle, one red row, two blue rows, an empty row, and the
-// wheel. On the jump each hand gains one cell, so an arm is two cells joined at
-// a bend: the walking cell stays where it was and the new one sits a row above
-// it.
+// wheel. On the jump the red row is drawn across the whole width and the hands
+// sit at its two ends: the front hand one row above it, the back hand one row
+// below it and out at the edge.
 var heroBig = map[HeroPose]heroBody{
 	HeroStand: body(
 		"..RRR..",
@@ -82,7 +84,7 @@ var heroBig = map[HeroPose]heroBody{
 		"..SSS..",
 		"..SSS..",
 		"...S..S",
-		"SRRRRRS",
+		"RRRRRRR",
 		"SBBBBB.",
 		".BBBBB.",
 		".......",

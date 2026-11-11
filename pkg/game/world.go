@@ -50,6 +50,10 @@ type World struct {
 	Parts   []*Particle
 	Bumps   []BumpAnim
 
+	// CoinFX are coins flying to the counter, CoinPlus the "+1" shown there.
+	CoinFX   []*CoinFX
+	CoinPlus []*CoinPlus
+
 	// TimeLeft is the countdown in seconds.
 	TimeLeft int
 	// stepCount is the number of simulation steps executed in this run.
@@ -168,11 +172,18 @@ func (w *World) resetEnemies() {
 // The score survives; terrain, blocks and enemies do not (spec game-flow /
 // 场景状态重置).
 func (w *World) Reset() {
+	// Terrain first: smashed bricks, used blocks and collected coins all come
+	// back. Clearing only the bookkeeping maps left the tiles themselves
+	// changed, so after a respawn a used question block stayed solid and
+	// empty for the rest of the run.
+	w.Level.Restore()
 	w.Player = NewPlayer(w.T, w.Level.SpawnX, w.Level.SpawnY)
 	w.Enemies = nil
 	w.Items = nil
 	w.Parts = nil
 	w.Bumps = nil
+	w.CoinFX = nil
+	w.CoinPlus = nil
 	w.usedBlocks = map[int]bool{}
 	w.revealed = map[int]bool{}
 	w.TimeLeft = w.Level.TimeLimit
@@ -239,9 +250,11 @@ func (w *World) stepPlaying(in engine.Pressed) {
 	}
 	w.updateParticles()
 	w.updateBumps()
+	w.updateCoinFX()
 
 	w.resolveEnemyContacts()
 	w.resolveItemContacts()
+	w.collectCoins()
 	w.cleanup()
 
 	w.tickClock()
@@ -261,6 +274,7 @@ func (w *World) stepPlaying(in engine.Pressed) {
 
 // stepFlagpole advances the end-of-level sequence.
 func (w *World) stepFlagpole() {
+	w.updateCoinFX()
 	w.Player.updateSlide(w.Level)
 	if w.Player.Pos.Y+w.Player.H >= engine.Fixed(w.Level.FlagBot+1)*engine.Tile {
 		w.SM.ShowResults()
@@ -356,7 +370,7 @@ func (w *World) resolveEnemyContacts() {
 	}
 
 	for _, e := range w.Enemies {
-		if e.Removed || e.Squashed > 0 {
+		if e.Removed || e.Squashed > 0 || e.Grace > 0 {
 			continue
 		}
 		if !p.Overlaps(&e.Body) {
@@ -392,9 +406,16 @@ func Default0() *Tuning { return &Default }
 // stomp applies a stomp to an enemy.
 func (w *World) stomp(e *Enemy) {
 	p := w.Player
+	wasResting := e.Kind == EnemyKoopa && e.Shell == KoopaShell
 	score, bounce := e.stomp(w.T)
 	if score == 0 {
 		return
+	}
+	// The second stomp sends the shell flying, away from where he landed on it.
+	// Only a shell that was already resting: stomping a Koopa makes the shell,
+	// and stomping a sliding shell stops it.
+	if wasResting {
+		e.kick(p.CenterX(), w.T)
 	}
 	w.combo++
 	w.Score.add(stompScore(w.combo))
@@ -412,6 +433,45 @@ func (w *World) stomp(e *Enemy) {
 		}
 		p.Jumping = true
 		p.StompChainOpen = true
+	}
+}
+
+// coinScore is what one coin from the level is worth.
+const coinScore = 200
+
+// collectCoins takes every coin tile the player is touching.
+//
+// Coins in the level are tiles, not entities: they never move, and there are
+// enough of them that a tile is the cheap way to hold them. Nothing used to read
+// them back, so they were drawn and could never be taken. The tile is cleared
+// rather than flagged, so it simply stops being drawn; a respawn restores it
+// with the rest of the terrain.
+func (w *World) collectCoins() {
+	p := w.Player
+	if p.Dead {
+		return
+	}
+	r := p.Rect()
+	x0 := int(r.X) / int(engine.Tile)
+	x1 := int(r.Right()-1) / int(engine.Tile)
+	y0 := int(r.Y) / int(engine.Tile)
+	y1 := int(r.Bottom()-1) / int(engine.Tile)
+	if r.Y < 0 {
+		y0 = -1
+	}
+	for y := y0; y <= y1; y++ {
+		for x := x0; x <= x1; x++ {
+			if w.Level.TileAt(x, y).Glyph != 'o' {
+				continue
+			}
+			w.Level.SetTile(x, y, level.Tile{Kind: level.KindEmpty, Glyph: ' '})
+			w.Score.addCoins(1)
+			w.Score.add(coinScore)
+			w.flyCoin(engine.Vec2{
+				X: engine.Fixed(x)*engine.Tile + engine.Tile/2,
+				Y: engine.Fixed(y)*engine.Tile + engine.Tile/2,
+			}, 0)
+		}
 	}
 }
 
@@ -433,8 +493,44 @@ func (w *World) resolveItemContacts() {
 		case ItemStar:
 			w.Score.add(1000)
 			p.Star(600)
+		case ItemOneUp:
+			w.Score.Lives++
+		case ItemGold:
+			w.Score.addCoins(goldCoins)
+			w.Score.add(goldCoins * coinScore)
+			at := engine.Vec2{X: it.CenterX(), Y: it.Pos.Y + it.H/2}
+			for i := 0; i < goldCoins; i++ {
+				w.flyCoin(at, i*goldStagger)
+			}
+		case ItemPoison:
+			// Same as touching an enemy, including the grace period and
+			// invincibility protecting him from it.
+			if !p.Invulnerable() {
+				w.hurtPlayer()
+			}
 		}
 	}
+}
+
+// goldCoins is how many coins the gold mushroom is worth.
+const goldCoins = 5
+
+// itemFor maps a block's payload to the mushroom it releases, or false for a
+// payload that is not a mushroom.
+func itemFor(k level.BlockKind) (ItemKind, bool) {
+	switch k {
+	case level.BlockMushroom:
+		return ItemMushroom, true
+	case level.BlockStar:
+		return ItemStar, true
+	case level.BlockOneUp:
+		return ItemOneUp, true
+	case level.BlockPoison:
+		return ItemPoison, true
+	case level.BlockGold:
+		return ItemGold, true
+	}
+	return 0, false
 }
 
 // handleBump reacts to the player's head hitting a block.
@@ -488,31 +584,21 @@ func (w *World) dispense(col, row int) {
 	switch c.Kind {
 	case level.BlockCoin:
 		w.Score.addCoins(1)
-		w.Score.add(200)
-		w.Parts = append(w.Parts, &Particle{
-			Pos:  engine.Vec2{X: engine.Fixed(col)*engine.Tile + engine.Tile/2, Y: engine.Fixed(row) * engine.Tile},
-			Vel:  engine.Vec2{Y: engine.FromFloat(-3)},
-			Life: 30, Kind: 's', Text: "200",
-		})
+		w.Score.add(coinScore)
+		w.popCoin(col, row)
 		c.Count--
 		if c.Count <= 0 {
 			w.usedBlocks[key] = true
 			w.Level.SetTile(col, row, level.Tile{Kind: level.KindSolid, Glyph: '#'})
 		}
-	case level.BlockMushroom:
-		it := NewItem(ItemMushroom, col, row-1)
+	default:
+		kind, ok := itemFor(c.Kind)
+		if !ok {
+			break
+		}
+		it := NewItem(kind, col, row-1)
 		it.setOrigin(col, row-1)
 		w.Items = append(w.Items, it)
-		w.usedBlocks[key] = true
-		w.Level.SetTile(col, row, level.Tile{Kind: level.KindSolid, Glyph: '#'})
-	case level.BlockStar:
-		it := NewItem(ItemStar, col, row-1)
-		it.setOrigin(col, row-1)
-		w.Items = append(w.Items, it)
-		w.usedBlocks[key] = true
-		w.Level.SetTile(col, row, level.Tile{Kind: level.KindSolid, Glyph: '#'})
-	case level.BlockOneUp:
-		w.Score.Lives++
 		w.usedBlocks[key] = true
 		w.Level.SetTile(col, row, level.Tile{Kind: level.KindSolid, Glyph: '#'})
 	}
@@ -658,6 +744,10 @@ const CameraVerticalMargin = engine.Tile * 3
 // the whole picture visibly jumps when it is recomputed.
 const CameraBottomMargin = engine.Tile * 3 / 2
 
+// CameraBackFraction places the scroll-back line: when the player walks left of
+// one third of the screen, the camera follows him back.
+const CameraBackFraction = 3
+
 // SetViewport tells the world how much it can see.
 //
 // The renderer owns the terminal size, so the world cannot know it at
@@ -683,11 +773,18 @@ func (w *World) SetViewport(vw, vh engine.Fixed) {
 func (w *World) updateCamera(force bool) {
 	lvW := engine.Fixed(w.Level.Width) * engine.Tile
 
-	// Horizontal: advance when the player passes the middle of the screen,
-	// and never scroll back (spec world-collision / 后退不拉回相机).
+	// Horizontal: advance when the player passes the middle of the screen, and
+	// scroll back when he walks into the left third. Between the two is a dead
+	// zone, so stepping back and forth does not move the view.
 	target := w.Player.CenterX() - w.ViewW/2
-	if target > w.CameraX || force {
+	back := w.Player.CenterX() - w.ViewW/CameraBackFraction
+	switch {
+	case force:
 		w.CameraX = target
+	case target > w.CameraX:
+		w.CameraX = target
+	case back < w.CameraX:
+		w.CameraX = back
 	}
 	if w.CameraX > lvW-w.ViewW {
 		w.CameraX = lvW - w.ViewW

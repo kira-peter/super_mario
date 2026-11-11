@@ -657,6 +657,7 @@ func (a *App) drawHUD(w, h int) {
 		a.screen.SetContent(x, row, r, nil, style)
 		x++
 	}
+	a.drawCoinPlus(w, row)
 	if a.notice != "" && h > 2 {
 		nstyle := tcell.StyleDefault.Foreground(a.theme.HudMuted).Background(a.theme.Sky)
 		x = 0
@@ -665,6 +666,25 @@ func (a *App) drawHUD(w, h int) {
 				break
 			}
 			a.screen.SetContent(x, h-2, r, nil, nstyle)
+			x++
+		}
+	}
+}
+
+// drawCoinPlus shows the green "+1" just after the coin count, while coins are
+// landing on it. It sits on the status line, over the spaces after the count.
+func (a *App) drawCoinPlus(w, row int) {
+	for _, p := range a.world.CoinPlus {
+		st, ok := render.CoinPlusStyle(a.theme, p.Age)
+		if !ok {
+			continue
+		}
+		x := render.CoinCounterCol + 4 // after "ⓒ×NN"
+		for _, r := range fmt.Sprintf("+%d", p.Amount) {
+			if x >= w {
+				break
+			}
+			a.screen.SetContent(x, row, r, nil, st)
 			x++
 		}
 	}

@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地形素材对比</title>
+<style>
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --fg: #1c1d20; --muted: #65676d;
+  --border: #dedbd6; --accent: #c0392b; --good: #2f7d4f;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a; --good: #6fbf86;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font);
+  padding: 28px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px));
+}
+.wrap { max-width: 1280px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 4px; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 74ch; }
+
+.layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1040px) { .layout { grid-template-columns: minmax(0, 1fr) 540px; } }
+
+.preview {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+@media (min-width: 1040px) { .preview { position: sticky; top: 16px; } }
+.preview h2 { margin: 0; }
+canvas { display: block; image-rendering: pixelated; background: #12141a; border-radius: 3px; }
+canvas.fluid { width: 100%; height: auto; }
+.cap { color: var(--muted); font-size: 12.5px; }
+.row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.real { max-width: 100%; }
+
+.summary {
+  font-family: var(--mono); font-size: 12.5px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+  overflow-wrap: anywhere; user-select: all;
+}
+.tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+
+section.cat { margin-bottom: 30px; }
+section.cat .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; max-width: 70ch; }
+.opts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.opt {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px; cursor: pointer; min-width: 0;
+}
+.opt:hover { border-color: var(--muted); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.opt canvas { width: 100%; height: auto; }
+.opt .nm { font-size: 13.5px; font-weight: 600; }
+.opt .nm i { font-style: normal; color: var(--accent); margin-right: 6px; font-family: var(--mono); }
+.opt .ds { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.note { color: var(--muted); font-size: 13px; max-width: 76ch; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>地形素材对比</h1>
+  <p class="lede">
+    地面、砖块、台阶、问号块、金币各有几种画法。点选一个就会合成进右边的场景；鼠标悬停在某个选项上，场景会临时换成它，方便来回比。
+    所有图都是游戏默认的 4×4 像素一格，不是放大后重画的。
+  </p>
+
+  <div class="layout">
+    <div id="cats"></div>
+
+    <aside class="preview" aria-label="合成预览">
+      <h2>合成预览</h2>
+      <canvas id="big" class="fluid" width="1" height="1"></canvas>
+      <div class="row">
+        <canvas id="real" class="real" width="1" height="1"></canvas>
+        <span class="cap">← 接近终端里的真实大小</span>
+      </div>
+      <div class="tools">
+        <label class="chk"><input type="checkbox" id="edge" checked> 地面下层不重复亮边</label>
+        <label class="chk"><input type="checkbox" id="grid"> 像素网格</label>
+        <label class="chk"><input type="checkbox" id="pause"> 暂停动画</label>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="tools">
+        <button id="copy">复制我的选择</button>
+        <button id="reset">全部恢复为现状</button>
+        <span class="cap" id="copied" role="status"></span>
+      </div>
+      <p class="note">
+        「下层不重复亮边」：现在地面有两层，每层都画一条亮边，所以地面里面会多出一条亮线。勾上后只有最上面一层有亮边，
+        这是渲染规则的改动，不只是换图，所以单独列出来让你决定。
+      </p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* One letter, one colour. '.' is left unpainted, so whatever is behind
+     shows through. */
+  var COL = {
+    g: "#a8692f", G: "#c98a4b", d: "#7f4d22",       /* soil, its bright crust, dark soil */
+    r: "#58a64b", R: "#3f7f3a",                      /* grass, dark grass */
+    b: "#b8693f", l: "#d9895a", m: "#7a4a2e", o: "#4a3220",   /* brick, light, mortar, outline */
+    s: "#8a909e", S: "#b7bcc9", t: "#5b606d",        /* stone, light, dark */
+    "?": "#e0b060", k: "#a8782a", h: "#fff3b0", "#": "#4a3220",   /* gold block, its shade, pale, mark */
+    "$": "#f5c842", "*": "#fff3b0", c: "#c9951f"      /* coin, its glint, its shade */
+  };
+  var SKY = "#12141a";
+  var HERO = { R: "#d94a3d", S: "#f0b088", B: "#3a5fc8", O: "#6b7280", Q: "#f2f4f8" };
+  var HERO_ROWS = ["..RR..", "..SS..", ".RRRRS", ".SBBB.", "......", "..QO..", "..OO.."];
+
+  var TS = 4;            /* art pixels per tile */
+  var W = 16, H = 8;     /* scene size in tiles */
+
+  /* Each option is either `tiles` (one or more still variants, picked by
+     position) or `frames` (an animation). A tile is four strings of four. */
+  var CATS = [
+    {
+      key: "ground", title: "地面", mode: "x",
+      sub: "最大面积的东西，所以最不能抢戏。要的是「看得出是土」，又不能一整片平涂。",
+      opts: [
+        { name: "现状", ds: "一行亮边，三行土，整片一模一样。",
+          tiles: [["GGGG", "gggg", "gggg", "gggg"]] },
+        { name: "交错碎石", ds: "土里散几点深色，相邻两格错开，铺开有颗粒感。",
+          tiles: [["GGGG", "gggg", "gdgg", "ggdg"], ["GGGG", "gggg", "ggdg", "gdgg"]] },
+        { name: "砖纹地砖", ds: "相邻两格缝的位置错开，铺开像一排地砖。",
+          tiles: [["GGGG", "gggd", "dddd", "gggg"], ["GGGG", "dggg", "dddd", "gggg"]] },
+        { name: "草皮", ds: "最上面一行换成草，下面还是土。",
+          tiles: [["rrRr", "gdgg", "gggg", "ggdg"], ["rRrr", "ggdg", "gggg", "gdgg"]] },
+        { name: "渐深", ds: "越往下越暗，不加任何纹理，靠明暗分层。",
+          tiles: [["GGGG", "gggg", "dddd", "dddd"]] },
+        { name: "暗土", ds: "整片压暗，只留亮边，把注意力让给前景。",
+          tiles: [["GGGG", "dddd", "dddd", "dddd"]] }
+      ]
+    },
+    {
+      key: "brick", title: "砖块 / 城墙", mode: "xy",
+      sub: "现在的砖块描边画了 12 格，砖色只剩 3 格，所以看上去是一团深棕。思路是把描边换成淡一点的缝。",
+      opts: [
+        { name: "现状", ds: "深色描边吃掉了大部分面积。",
+          tiles: [["oooo", "obbb", "oooo", "bbob"]] },
+        { name: "淡缝加高光", ds: "顶上一行亮，缝用中棕而不是深棕。",
+          tiles: [["llll", "bbmb", "mmmm", "bmbb"]] },
+        { name: "立体块", ds: "左上亮、右下暗，每块都像凸起来的。",
+          tiles: [["lllm", "bbbm", "bbbm", "mmmm"]] },
+        { name: "横纹", ds: "一行砖一行缝，最简单，砌出来像一道墙。",
+          tiles: [["bbbb", "mmmm", "bbbb", "mmmm"]] },
+        { name: "错缝砖", ds: "相邻两格缝的位置错开，砌墙时是真正的错缝。",
+          tiles: [["bbmb", "mmmm", "bmbb", "mmmm"], ["bmbb", "mmmm", "bbmb", "mmmm"]] },
+        { name: "棋盘砖", ds: "2×2 的方块交错，图案粗，远看也清楚。",
+          tiles: [["bbmm", "bbmm", "mmbb", "mmbb"]] }
+      ]
+    },
+    {
+      key: "stair", title: "台阶", mode: "x",
+      sub: "现在台阶和地面画法完全一样，所以阶梯看起来就是几块地面堆在一起。要让它和地面、砖块都分得开。",
+      opts: [
+        { name: "现状", ds: "和地面一样。",
+          tiles: [["GGGG", "gggg", "gggg", "gggg"]] },
+        { name: "灰石立体", ds: "灰色，左上亮右下暗，和土黄的地面颜色上就分开。",
+          tiles: [["SSSS", "Ssst", "Ssst", "tttt"]] },
+        { name: "土色立体", ds: "还是土的颜色，但有亮顶暗底，比地面更像一块块。",
+          tiles: [["GGGG", "Gggd", "Gggd", "dddd"]] },
+        { name: "平面石", ds: "灰色，只有顶亮底暗，没有侧边，更干净。",
+          tiles: [["SSSS", "ssss", "ssss", "tttt"]] },
+        { name: "铆钉块", ds: "四角有亮点，像钉过的钢板。",
+          tiles: [["SssS", "ssss", "ssss", "SssS"]] }
+      ]
+    },
+    {
+      key: "qblock", title: "问号块", mode: "x",
+      sub: "4×4 里画不出一个像样的问号。可以画个大概，也可以不画，靠颜色和闪烁让人知道这块是特别的。",
+      opts: [
+        { name: "现状", ds: "描边加两个深色点，认不出是问号。",
+          tiles: [["oooo", "o?oo", "o?oo", "oooo"]] },
+        { name: "问号轮廓", ds: "去掉描边，用深色点勾出问号的样子。",
+          tiles: [["?##?", "??#?", "?#??", "?#??"]] },
+        { name: "亮点闪烁", ds: "保留描边，中间一格在金色和亮黄之间闪。",
+          frames: [["oooo", "o??o", "o??o", "oooo"], ["oooo", "ohho", "ohho", "oooo"]], speed: 4 },
+        { name: "立体金块", ds: "亮顶暗底的金块，不画问号，靠颜色显眼。",
+          tiles: [["hhhh", "????", "????", "kkkk"]] },
+        { name: "立体加问号", ds: "立体金块上再勾一个简化的问号。",
+          tiles: [["hhhh", "?##?", "??#?", "kkkk"]] },
+        { name: "立体呼吸光", ds: "立体金块，中心一块慢慢变亮再变暗。",
+          frames: [["hhhh", "????", "????", "kkkk"], ["hhhh", "?hh?", "?hh?", "kkkk"]], speed: 5 }
+      ]
+    },
+    {
+      key: "coin", title: "金币", mode: "x",
+      sub: "现在的金币是 2 格宽的竖条，转起来像在闪。希望一眼是个币，而且在动的时候不会太吵。",
+      opts: [
+        { name: "现状（近似）", ds: "竖条，靠宽窄变化表示旋转。",
+          frames: [["$$..", "*$$.", "*$$.", "$$.."], [".$..", ".$*.", ".$*.", ".$.."],
+                   ["..$.", "..$.", "..$.", "..$."], [".$..", ".$*.", ".$*.", ".$.."]], speed: 2, phase: true },
+        { name: "椭圆旋转", ds: "画成圆，旋转时在宽、窄、侧面之间变化。",
+          frames: [[".$$.", "$**$", "$**$", ".$$."], [".$$.", "$*$.", "$*$.", ".$$."],
+                   [".$c.", ".$c.", ".$c.", ".$c."], [".$$.", ".$*$", ".$*$", ".$$."]], speed: 2, phase: true },
+        { name: "上下浮动", ds: "圆币不转，轻轻上下浮动一格，更稳。",
+          frames: [[".$$.", "$*$$", ".$$.", "...."], ["....", ".$$.", "$*$$", ".$$."]], speed: 4, phase: true },
+        { name: "亮点巡游", ds: "圆币不转，一个亮点沿着币边绕一圈。",
+          frames: [[".*$.", "$$$$", "$$$c", ".cc."], [".$$.", "$$$*", "$$$c", ".cc."],
+                   [".$$.", "$$$$", "$$$c", ".c*."], [".$$.", "$$$$", "*$$c", ".cc."]], speed: 2, phase: true },
+        { name: "静态立体加闪光", ds: "有明暗的圆币，高光偶尔一闪。",
+          frames: [[".$$.", "$*$c", "$$$c", ".cc."], [".$$.", "$$$c", "$$$c", ".cc."]], speed: 5, phase: true }
+      ]
+    }
+  ];
+
+  var state = { sel: {}, hover: null, t: 0, edge: true, grid: false, paused: false };
+  CATS.forEach(function (c) { state.sel[c.key] = 0; });
+
+  function effective() {
+    var s = {};
+    CATS.forEach(function (c) { s[c.key] = state.sel[c.key]; });
+    if (state.hover) s[state.hover.key] = state.hover.i;
+    return s;
+  }
+
+  function pick(cat, opt, tx, ty, t) {
+    if (opt.frames) {
+      var step = Math.floor((t + (opt.phase ? tx : 0)) / (opt.speed || 2));
+      return opt.frames[step % opt.frames.length];
+    }
+    var n = opt.tiles.length;
+    var k = cat.mode === "xy" ? tx + ty : tx;
+    return opt.tiles[((k % n) + n) % n];
+  }
+
+  /* Below the top layer, the bright crust is replaced by the row under it. */
+  function fillOf(rows) { var f = rows.slice(); f[0] = rows[1]; return f; }
+
+  function paint(ctx, z, rows, px, py, pal) {
+    for (var r = 0; r < rows.length; r++) {
+      for (var c = 0; c < rows[r].length; c++) {
+        var col = (pal || COL)[rows[r].charAt(c)];
+        if (col) { ctx.fillStyle = col; ctx.fillRect((px + c) * z, (py + r) * z, z, z); }
+      }
+    }
+  }
+
+  function put(ctx, z, cat, opt, tx, ty, t, under) {
+    var rows = pick(cat, opt, tx, ty, t);
+    if (under) rows = fillOf(rows);
+    paint(ctx, z, rows, tx * TS, ty * TS);
+  }
+
+  function drawScene(ctx, z, sel, t) {
+    var g = CATS[0], b = CATS[1], s = CATS[2], q = CATS[3], c = CATS[4];
+    var go = g.opts[sel.ground], bo = b.opts[sel.brick], so = s.opts[sel.stair],
+        qo = q.opts[sel.qblock], co = c.opts[sel.coin];
+    var x, y;
+
+    ctx.fillStyle = SKY;
+    ctx.fillRect(0, 0, W * TS * z, H * TS * z);
+
+    for (x = 0; x < W; x++) {
+      put(ctx, z, g, go, x, 6, t, false);
+      put(ctx, z, g, go, x, 7, t, state.edge);
+    }
+
+    /* brick, question, brick, question, brick */
+    for (x = 2; x <= 6; x++) {
+      if (x % 2 === 0) put(ctx, z, b, bo, x, 3, t, false);
+      else put(ctx, z, q, qo, x, 3, t, false);
+    }
+
+    /* a two-by-two piece of wall, to see the brick pattern repeat */
+    for (y = 4; y <= 5; y++) for (x = 8; x <= 9; x++) put(ctx, z, b, bo, x, y, t, false);
+
+    /* stairs, one to four blocks high */
+    for (x = 11; x <= 14; x++) {
+      var h = x - 10;
+      for (y = 6 - h; y <= 5; y++) put(ctx, z, s, so, x, y, t, false);
+    }
+
+    [[3, 1], [4, 1], [5, 1], [8, 2], [9, 2]].forEach(function (p) {
+      put(ctx, z, c, co, p[0], p[1], t, false);
+    });
+
+    paint(ctx, z, HERO_ROWS, 2, 6 * TS - HERO_ROWS.length, HERO);
+
+    if (state.grid && z >= 8) {
+      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath();
+      for (var gx = 0; gx <= W * TS; gx++) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, H * TS * z); }
+      for (var gy = 0; gy <= H * TS; gy++) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(W * TS * z, gy * z + 0.5); }
+      ctx.stroke();
+    }
+  }
+
+  /* A swatch is a 16x8 pixel strip showing one option the way it will be used. */
+  function drawSwatch(ctx, z, cat, opt, t) {
+    var x, y;
+    ctx.fillStyle = SKY; ctx.fillRect(0, 0, 16 * z, 8 * z);
+    if (cat.key === "ground") {
+      for (x = 0; x < 4; x++) {
+        paint(ctx, z, pick(cat, opt, x, 0, t), x * TS, 0);
+        paint(ctx, z, state.edge ? fillOf(pick(cat, opt, x, 1, t)) : pick(cat, opt, x, 1, t), x * TS, TS);
+      }
+    } else if (cat.key === "brick") {
+      for (y = 0; y < 2; y++) for (x = 0; x < 4; x++) paint(ctx, z, pick(cat, opt, x, y, t), x * TS, y * TS);
+    } else if (cat.key === "stair") {
+      var hs = [0, 1, 2, 2];
+      for (x = 0; x < 4; x++) for (y = 2 - hs[x]; y < 2; y++) paint(ctx, z, pick(cat, opt, x, y, t), x * TS, y * TS);
+    } else if (cat.key === "qblock") {
+      for (x = 0; x < 4; x++) paint(ctx, z, pick(cat, opt, x, 0, t), x * TS, 2);
+    } else {
+      for (x = 0; x < 4; x++) paint(ctx, z, pick(cat, opt, x, 0, t), x * TS, 2);
+    }
+  }
+
+  var SW = 8;              /* swatch zoom */
+  var swatches = [];       /* {cat, opt, ctx} */
+
+  function buildCats() {
+    var host = document.getElementById("cats");
+    CATS.forEach(function (cat) {
+      var sec = document.createElement("section"); sec.className = "cat";
+      var h = document.createElement("h2"); h.textContent = cat.title; sec.appendChild(h);
+      var sub = document.createElement("p"); sub.className = "sub"; sub.textContent = cat.sub; sec.appendChild(sub);
+      var grid = document.createElement("div"); grid.className = "opts"; sec.appendChild(grid);
+
+      cat.opts.forEach(function (opt, i) {
+        var label = document.createElement("label"); label.className = "opt" + (i === 0 ? " on" : "");
+        var input = document.createElement("input");
+        input.type = "radio"; input.name = "cat-" + cat.key; input.value = String(i);
+        if (i === 0) input.checked = true;
+
+        var cv = document.createElement("canvas");
+        cv.width = 16 * SW; cv.height = 8 * SW;
+
+        var nm = document.createElement("span"); nm.className = "nm";
+        var letter = document.createElement("i"); letter.textContent = String.fromCharCode(65 + i);
+        nm.appendChild(letter); nm.appendChild(document.createTextNode(opt.name));
+        var ds = document.createElement("span"); ds.className = "ds"; ds.textContent = opt.ds;
+
+        label.appendChild(input); label.appendChild(cv); label.appendChild(nm); label.appendChild(ds);
+        grid.appendChild(label);
+
+        input.addEventListener("change", function () {
+          state.sel[cat.key] = i;
+          Array.prototype.forEach.call(grid.children, function (el, k) { el.classList.toggle("on", k === i); });
+          refresh();
+        });
+        function over() { state.hover = { key: cat.key, i: i }; refreshScene(); }
+        function out() { state.hover = null; refreshScene(); }
+        label.addEventListener("mouseenter", over);
+        label.addEventListener("mouseleave", out);
+        input.addEventListener("focus", over);
+        input.addEventListener("blur", out);
+
+        swatches.push({ cat: cat, opt: opt, ctx: cv.getContext("2d") });
+      });
+      host.appendChild(sec);
+    });
+  }
+
+  var BIG = 12, REAL = 8;
+  var bigCv, realCv;
+
+  function refreshScene() {
+    var sel = effective();
+    drawScene(bigCv.getContext("2d"), BIG, sel, state.t);
+    drawScene(realCv.getContext("2d"), REAL, sel, state.t);
+  }
+  function refreshSwatches() {
+    swatches.forEach(function (s) { s.ctx.imageSmoothingEnabled = false; drawSwatch(s.ctx, SW, s.cat, s.opt, state.t); });
+  }
+  function summaryText() {
+    var parts = [], code = [];
+    CATS.forEach(function (c) {
+      var i = state.sel[c.key];
+      parts.push(c.title + " " + String.fromCharCode(65 + i) + "「" + c.opts[i].name + "」");
+      code.push(c.key + "=" + String.fromCharCode(65 + i));
+    });
+    return parts.join(" · ") + "\n" + code.join(" ") + " lowerEdge=" + (state.edge ? "off" : "on");
+  }
+  function refresh() {
+    refreshScene();
+    refreshSwatches();
+    document.getElementById("summary").textContent = summaryText();
+  }
+
+  function init() {
+    bigCv = document.getElementById("big");
+    realCv = document.getElementById("real");
+    bigCv.width = W * TS * BIG; bigCv.height = H * TS * BIG;
+    realCv.width = W * TS * REAL; realCv.height = H * TS * REAL;
+    bigCv.getContext("2d").imageSmoothingEnabled = false;
+    realCv.getContext("2d").imageSmoothingEnabled = false;
+
+    buildCats();
+    refresh();
+
+    document.getElementById("edge").addEventListener("change", function (e) { state.edge = e.target.checked; refresh(); });
+    document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; refresh(); });
+    var pause = document.getElementById("pause");
+    pause.addEventListener("change", function (e) { state.paused = e.target.checked; });
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      pause.checked = true; state.paused = true;
+    }
+
+    document.getElementById("reset").addEventListener("click", function () {
+      CATS.forEach(function (c) { state.sel[c.key] = 0; });
+      Array.prototype.forEach.call(document.querySelectorAll(".opts"), function (grid) {
+        Array.prototype.forEach.call(grid.children, function (el, k) {
+          el.classList.toggle("on", k === 0);
+          el.querySelector("input").checked = (k === 0);
+        });
+      });
+      refresh();
+    });
+
+    var copied = document.getElementById("copied");
+    document.getElementById("copy").addEventListener("click", function () {
+      var text = summaryText();
+      var done = function (msg) { copied.textContent = msg; setTimeout(function () { copied.textContent = ""; }, 2400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done("已复制"); }, function () { done("复制失败，请手动选中上面的文字"); });
+      } else {
+        done("请手动选中上面的文字复制");
+      }
+    });
+
+    setInterval(function () {
+      if (state.paused) return;
+      state.t++;
+      refreshScene();
+      refreshSwatches();
+    }, 150);
+  }
+
+  window.__TERRAIN__ = { CATS: CATS, COL: COL };
+  init();
+})();
+</script>
+</body>
+</html>

@@ -73,14 +73,17 @@ var symbolTable = map[rune]Kind{
 	'o': KindDecor,     // coin (collected as an entity)
 }
 
-// BlockKind is what a question block dispenses.
+// BlockKind is what a question block dispenses. Apart from a coin, each is a
+// mushroom whose colour says what it does.
 type BlockKind string
 
 const (
 	BlockCoin     BlockKind = "coin"
-	BlockMushroom BlockKind = "mushroom"
-	BlockStar     BlockKind = "star"
-	BlockOneUp    BlockKind = "oneup"
+	BlockMushroom BlockKind = "mushroom" // red: grow
+	BlockStar     BlockKind = "star"     // blue: invincible
+	BlockOneUp    BlockKind = "oneup"    // green: extra life
+	BlockPoison   BlockKind = "poison"   // purple: hurts
+	BlockGold     BlockKind = "gold"     // gold: five coins
 )
 
 // Content describes a block's payload, fixed at authoring time so a given block
@@ -111,8 +114,31 @@ type Level struct {
 	FlagTop   int
 	FlagBot   int
 	tiles     []Tile
+	// pristine is the terrain as loaded. Play changes tiles (a brick is
+	// smashed, a block is used, a coin is taken), and a respawn puts them back
+	// from here.
+	pristine []Tile
+	// contents0 is the block payloads as loaded, for the same reason: a coin
+	// brick counts down as it is hit.
+	contents0 []Content
 	Contents  []Content
 	Spawns    []Spawn
+}
+
+// Restore puts every tile and block payload back the way the level was
+// loaded. It is what a respawn uses, so the level is the same on every life.
+func (l *Level) Restore() {
+	if l.pristine == nil {
+		return
+	}
+	copy(l.tiles, l.pristine)
+	l.Contents = append(l.Contents[:0], l.contents0...)
+}
+
+// snapshot records the loaded state for Restore.
+func (l *Level) snapshot() {
+	l.pristine = append([]Tile(nil), l.tiles...)
+	l.contents0 = append([]Content(nil), l.Contents...)
 }
 
 // TileAt returns the tile at a cell. Out-of-range columns read as solid so the
@@ -289,7 +315,7 @@ func validate(f *file) (*Level, error) {
 			return nil, fmt.Errorf("contents[%d]: block (%d,%d) is outside the level", i, c.X, c.Y)
 		}
 		switch BlockKind(c.Kind) {
-		case BlockCoin, BlockMushroom, BlockStar, BlockOneUp:
+		case BlockCoin, BlockMushroom, BlockStar, BlockOneUp, BlockPoison, BlockGold:
 		default:
 			return nil, fmt.Errorf("contents[%d]: unknown block kind %q", i, c.Kind)
 		}
@@ -340,6 +366,7 @@ func validate(f *file) (*Level, error) {
 		}
 	}
 
+	l.snapshot()
 	return l, nil
 }
 

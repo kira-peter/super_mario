@@ -6,16 +6,26 @@ import (
 )
 
 // ItemKind is a collectible that moves on its own.
+//
+// Every pickup is a mushroom of the same shape; the colour says what it does.
 type ItemKind int
 
 const (
-	// ItemMushroom makes Mario big.
+	// ItemMushroom is the red mushroom: it makes Mario big.
 	ItemMushroom ItemKind = iota
-	// ItemStar makes Mario invincible.
+	// ItemStar is the blue mushroom: it makes Mario invincible for a while.
+	// It took the star's place, and kept its name so level files still say
+	// "star".
 	ItemStar
+	// ItemOneUp is the green mushroom: one extra life.
+	ItemOneUp
+	// ItemPoison is the purple mushroom: it hurts, like touching an enemy.
+	ItemPoison
+	// ItemGold is the gold mushroom: five coins at once.
+	ItemGold
 )
 
-// Item is a mushroom or a star that has emerged from a block.
+// Item is a mushroom that has emerged from a block.
 type Item struct {
 	Body
 	Kind ItemKind
@@ -52,43 +62,30 @@ func (it *Item) update(lv *level.Level, t *Tuning) {
 		it.Emerging--
 		it.Pos.Y -= engine.Tile.Div(emergeSteps)
 		if it.Emerging == 0 {
-			// Settle on top of the block it came from.
+			// Settle on top of the block it came from and walk off.
 			it.Pos.Y = engine.Fixed(it.blockRow)*engine.Tile - it.H
-			if it.Kind == ItemMushroom {
-				it.Vel.X = t.ItemWalkSpeed
-				it.Facing = 1
-			} else {
-				it.Vel.X = t.ItemWalkSpeed
-				it.Vel.Y = engine.FromFloat(-3)
-				it.Facing = 1
-			}
+			it.Vel.X = t.ItemWalkSpeed
+			it.Facing = 1
 		}
 		return
 	}
 
-	if it.Kind == ItemStar {
-		it.Vel.Y += t.ItemGravity
-		if it.Vel.Y > t.MaxFallSpeed {
-			it.Vel.Y = t.MaxFallSpeed
-		}
-	} else {
-		it.Vel.Y += t.GravityFall
-		if it.Vel.Y > t.MaxFallSpeed {
-			it.Vel.Y = t.MaxFallSpeed
-		}
+	it.Vel.Y += t.GravityFall
+	if it.Vel.Y > t.MaxFallSpeed {
+		it.Vel.Y = t.MaxFallSpeed
 	}
 
 	c := moveBody(lv, &it.Body, false)
 	it.Grounded = c.Grounded
-	if c.HitLeft || c.HitRight {
-		it.Vel.X = -it.Vel.X
-		it.Facing = -it.Facing
-	}
-	if it.Kind == ItemStar && c.HitCeiling {
-		it.Vel.Y = engine.FromFloat(2)
-	}
-	if it.Kind == ItemStar && c.Grounded {
-		it.Vel.Y = engine.FromFloat(-3)
+	// Turn round at a wall or a pipe. The collision resolve has already zeroed
+	// the speed, so negating it would leave the mushroom pressed against the
+	// wall for good; the direction comes from which side it hit instead.
+	if c.HitLeft {
+		it.Vel.X = t.ItemWalkSpeed
+		it.Facing = 1
+	} else if c.HitRight {
+		it.Vel.X = -t.ItemWalkSpeed
+		it.Facing = -1
 	}
 	if it.Pos.Y > engine.Fixed(lv.Height)*engine.Tile {
 		it.Removed = true

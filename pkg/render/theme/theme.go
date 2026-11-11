@@ -43,6 +43,20 @@ type Tokens struct {
 	PipeHi     tcell.Color
 	PipeLo     tcell.Color
 
+	// GroundDeep is the dark soil under the bright crust. BrickMortar is the
+	// seam between bricks, deliberately lighter than Outline: at four pixels to
+	// a tile a dark outline takes more area than the brick it surrounds.
+	GroundDeep  tcell.Color
+	BrickMortar tcell.Color
+	// StoneLight, Stone and StoneDark are the three tones of a stair block: lit
+	// top-left, flat middle, shaded bottom-right. It is grey so a stair reads as
+	// a different material from the earth floor beside it.
+	StoneLight tcell.Color
+	Stone      tcell.Color
+	StoneDark  tcell.Color
+	// QuestionGlint is the pale gold a question block pulses to.
+	QuestionGlint tcell.Color
+
 	// Characters.
 	PlayerBody   tcell.Color
 	PlayerAccent tcell.Color
@@ -61,14 +75,41 @@ type Tokens struct {
 	EnemyAccent tcell.Color
 
 	// Pickups.
-	Coin       tcell.Color
-	CoinHi     tcell.Color
+	Coin   tcell.Color
+	CoinHi tcell.Color
+	// CoinShade is the shaded lower-right edge of a coin.
+	CoinShade  tcell.Color
 	Mushroom   tcell.Color
 	Star       tcell.Color
 	StarAccent tcell.Color
 
+	// Cast is the palette of the hand-drawn four-pixel characters.
+	Cast Cast
+
 	// Full is true when the terminal renders the palette as authored.
 	Full bool
+}
+
+// Cast holds the colours of the mushrooms, the enemies and the flag.
+//
+// Every mushroom has the same shape, so its cap colour is the only thing that
+// says what it does; each cap has a darker rim under it for depth.
+type Cast struct {
+	ShroomRed, ShroomRedRim       tcell.Color
+	ShroomGreen, ShroomGreenRim   tcell.Color
+	ShroomBlue, ShroomBlueRim     tcell.Color
+	ShroomPurple, ShroomPurpleRim tcell.Color
+	ShroomGold, ShroomGoldRim     tcell.Color
+	ShroomSpot, ShroomStem        tcell.Color
+
+	GoombaBody, GoombaEye, GoombaFeet tcell.Color
+
+	KoopaSkin, KoopaShell, KoopaShellHi, KoopaRim tcell.Color
+
+	FlagPole, FlagBall, FlagBallShade, FlagDark, FlagLight tcell.Color
+
+	// CoinPlus is the green "+1" shown at the coin counter.
+	CoinPlus tcell.Color
 }
 
 func hex(v int32) tcell.Color { return tcell.NewHexColor(v) }
@@ -97,6 +138,13 @@ var Ink = Tokens{
 	PipeHi:     hex(0x6fcf7f),
 	PipeLo:     hex(0x2d7a3e),
 
+	GroundDeep:    hex(0x7f4d22),
+	BrickMortar:   hex(0x7a4a2e),
+	StoneLight:    hex(0xb7bcc9),
+	Stone:         hex(0x8a909e),
+	StoneDark:     hex(0x5b606d),
+	QuestionGlint: hex(0xfff3b0),
+
 	PlayerBody:   hex(0xd94a3d),
 	PlayerAccent: hex(0x3a5fc8),
 	PlayerSkin:   hex(0xf0b088),
@@ -110,9 +158,27 @@ var Ink = Tokens{
 
 	Coin:       hex(0xf5c842),
 	CoinHi:     hex(0xfff3b0),
+	CoinShade:  hex(0xc9951f),
 	Mushroom:   hex(0xd94a3d),
 	Star:       hex(0xf5c842),
 	StarAccent: hex(0xfff3b0),
+
+	Cast: Cast{
+		ShroomRed: hex(0xd94a3d), ShroomRedRim: hex(0x8f2a22),
+		ShroomGreen: hex(0x4caf50), ShroomGreenRim: hex(0x2f7a33),
+		ShroomBlue: hex(0x3d7fe0), ShroomBlueRim: hex(0x1f4a99),
+		ShroomPurple: hex(0xa056d6), ShroomPurpleRim: hex(0x5e2a85),
+		ShroomGold: hex(0xf5c842), ShroomGoldRim: hex(0xc9951f),
+		ShroomSpot: hex(0xf2f4f8), ShroomStem: hex(0xf0d8b0),
+
+		GoombaBody: hex(0xa0602e), GoombaEye: hex(0xf2f4f8), GoombaFeet: hex(0xe6b07a),
+
+		KoopaSkin: hex(0xf0c860), KoopaShell: hex(0x3f9a3f), KoopaShellHi: hex(0x8fd46e), KoopaRim: hex(0xf2f4f8),
+
+		FlagPole: hex(0xb7bcc9), FlagBall: hex(0xf5c842), FlagBallShade: hex(0xc9951f),
+		FlagDark: hex(0x1a1a1a), FlagLight: hex(0xf2f4f8),
+		CoinPlus: hex(0x5fd35f),
+	},
 
 	Full: true,
 }
@@ -136,6 +202,13 @@ var Paper = Tokens{
 	PipeHi:     hex(0x5aa868),
 	PipeLo:     hex(0x286a34),
 
+	GroundDeep:    hex(0x8f5a28),
+	BrickMortar:   hex(0x8a4a24),
+	StoneLight:    hex(0xc4c8d2),
+	Stone:         hex(0x9aa0ac),
+	StoneDark:     hex(0x6a6f7c),
+	QuestionGlint: hex(0xf2d880),
+
 	PlayerBody:   hex(0xc0392b),
 	PlayerAccent: hex(0x2f4fa8),
 	PlayerSkin:   hex(0xe0a080),
@@ -149,9 +222,28 @@ var Paper = Tokens{
 
 	Coin:       hex(0xd0a020),
 	CoinHi:     hex(0xf0d060),
+	CoinShade:  hex(0xa07a10),
 	Mushroom:   hex(0xc0392b),
 	Star:       hex(0xe0b020),
 	StarAccent: hex(0xf0d060),
+
+	// On a near-white sky the white parts need a grey to stay visible.
+	Cast: Cast{
+		ShroomRed: hex(0xc0392b), ShroomRedRim: hex(0x7a2018),
+		ShroomGreen: hex(0x3a9a40), ShroomGreenRim: hex(0x24662a),
+		ShroomBlue: hex(0x2f6fd0), ShroomBlueRim: hex(0x1a3f88),
+		ShroomPurple: hex(0x8a40c0), ShroomPurpleRim: hex(0x4e2272),
+		ShroomGold: hex(0xd0a020), ShroomGoldRim: hex(0x9a7410),
+		ShroomSpot: hex(0xffffff), ShroomStem: hex(0xd8b888),
+
+		GoombaBody: hex(0x8a5024), GoombaEye: hex(0xffffff), GoombaFeet: hex(0xc08850),
+
+		KoopaSkin: hex(0xd0a030), KoopaShell: hex(0x2f8a34), KoopaShellHi: hex(0x6ab85a), KoopaRim: hex(0xb8bcc4),
+
+		FlagPole: hex(0x8a909e), FlagBall: hex(0xd0a020), FlagBallShade: hex(0x9a7410),
+		FlagDark: hex(0x1c1d20), FlagLight: hex(0xd8dbe0),
+		CoinPlus: hex(0x2a9a3a),
+	},
 
 	Full: true,
 }
@@ -204,6 +296,17 @@ func Degrade(t Tokens, c Capacity) Tokens {
 	t.PipeHi = tcell.ColorSilver
 	t.PipeLo = tcell.ColorGray
 
+	// Without colour the earth floor and the stone stairs must still differ,
+	// which colour alone no longer does. The soil goes to the darkest grey the
+	// terminal offers and the stone keeps its three tones, so a stair is lighter
+	// than the floor it stands on.
+	t.GroundDeep = tcell.ColorDarkGray
+	t.BrickMortar = tcell.ColorDarkGray
+	t.StoneLight = tcell.ColorWhite
+	t.Stone = tcell.ColorSilver
+	t.StoneDark = tcell.ColorGray
+	t.QuestionGlint = tcell.ColorWhite
+
 	t.PlayerBody = tcell.ColorWhite
 	t.PlayerAccent = tcell.ColorSilver
 	t.PlayerSkin = tcell.ColorWhite
@@ -217,9 +320,25 @@ func Degrade(t Tokens, c Capacity) Tokens {
 
 	t.Coin = tcell.ColorWhite
 	t.CoinHi = tcell.ColorWhite
+	t.CoinShade = tcell.ColorSilver
 	t.Mushroom = tcell.ColorWhite
 	t.Star = tcell.ColorWhite
 	t.StarAccent = tcell.ColorWhite
+
+	// Without colour the mushrooms can only differ in brightness, so each cap
+	// gets its own grey and its rim the next one down.
+	cs := &t.Cast
+	cs.ShroomRed, cs.ShroomRedRim = tcell.ColorSilver, tcell.ColorGray
+	cs.ShroomGreen, cs.ShroomGreenRim = tcell.ColorGray, tcell.ColorDarkGray
+	cs.ShroomBlue, cs.ShroomBlueRim = tcell.ColorWhite, tcell.ColorSilver
+	cs.ShroomPurple, cs.ShroomPurpleRim = tcell.ColorDarkGray, tcell.ColorBlack
+	cs.ShroomGold, cs.ShroomGoldRim = tcell.ColorWhite, tcell.ColorGray
+	cs.ShroomSpot, cs.ShroomStem = tcell.ColorWhite, tcell.ColorSilver
+	cs.GoombaBody, cs.GoombaEye, cs.GoombaFeet = tcell.ColorGray, tcell.ColorWhite, tcell.ColorSilver
+	cs.KoopaSkin, cs.KoopaShell, cs.KoopaShellHi, cs.KoopaRim = tcell.ColorSilver, tcell.ColorGray, tcell.ColorSilver, tcell.ColorWhite
+	cs.FlagPole, cs.FlagBall, cs.FlagBallShade = tcell.ColorSilver, tcell.ColorWhite, tcell.ColorGray
+	cs.FlagDark, cs.FlagLight = tcell.ColorBlack, tcell.ColorWhite
+	cs.CoinPlus = tcell.ColorWhite
 
 	t.Full = false
 	return t

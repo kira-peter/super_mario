@@ -23,7 +23,7 @@
   "                                                                                                                                                                                                      F             ",
   "                                                                                        o                                                                                                             F             ",
   "                                                                                       o o                                                                     H                                      F             ",
-  "                ?   B?B?B                     []         []     BB?B         BBBBBBB          B?BB                                       H   H                HH                                      F             ",
+  "                ?   B?B?B                     []         []     B??B         BBB?BBB          B?B?                                       H   H                HH                                      F             ",
   "                                      []      {}         {}                                                                             HH   HH              HHH                                      F             ",
   "                            []        {}      {}         {}                                                                            HHH   HHH            HHHH                                      F             ",
   "                            {}        {}      {}         {}                                                                           HHHH   HHHH          HHHHH                                      F             ",
@@ -84,6 +84,27 @@
    "x": 95,
    "y": 9,
    "kind": "star",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 65,
+   "y": 9,
+   "kind": "poison",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 80,
+   "y": 9,
+   "kind": "gold",
+   "count": 1,
+   "hidden": false
+  },
+  {
+   "x": 97,
+   "y": 9,
+   "kind": "oneup",
    "count": 1,
    "hidden": false
   }

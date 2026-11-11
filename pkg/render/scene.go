@@ -31,16 +31,23 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 	}
 	set := SetFor(colsPerTile)
 
-	tilesW := int(w.ViewW / engine.Tile)
-	tilesH := int(w.ViewH / engine.Tile)
-	if tilesW <= 0 {
-		tilesW = 10
+	// The canvas is exactly as many art pixels as the viewport covers, not a
+	// whole number of tiles. The viewport is sized to the terminal and is
+	// usually a fractional number of tiles (19.5 down on a 40-row terminal).
+	// Rounding that down to whole tiles gave a canvas a row or two short, and
+	// stretching it back over the terminal duplicated those rows: the bricks
+	// they fell in drew taller than the rest.
+	// Rounded up: the viewport was itself rounded down when it was converted
+	// from terminal pixels (4096 does not divide by 12), and truncating again
+	// here would come out one pixel short.
+	artW := ceilArt(w.ViewW, colsPerTile)
+	artH := ceilArt(w.ViewH, colsPerTile)
+	if artW <= 0 {
+		artW = 10 * colsPerTile
 	}
-	if tilesH <= 0 {
-		tilesH = 7
+	if artH <= 0 {
+		artH = 7 * colsPerTile
 	}
-	artW := tilesW * colsPerTile
-	artH := tilesH * colsPerTile
 	c := NewCanvas(artW, artH)
 	c.Clear(s.T.Sky)
 
@@ -51,10 +58,12 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 		camX: camX, camY: camY, artW: artW, artH: artH}
 
 	d.terrain(w)
+	d.flag(w)
 	d.items(w)
 	d.enemies(w)
 	d.player(w)
 	d.particles(w)
+	d.coins(w)
 	return c
 }
 
@@ -105,6 +114,12 @@ func WorldToArtScaled(v engine.Fixed, artPerTile int) int {
 	return int(n)
 }
 
+// ceilArt converts a world-space length to art pixels, rounding up.
+func ceilArt(v engine.Fixed, artPerTile int) int {
+	n := int64(v)*int64(artPerTile) + int64(engine.Tile) - 1
+	return int(n / int64(engine.Tile))
+}
+
 // terrain paints every visible tile, plus the bump offsets of blocks just hit.
 func (d drawer) terrain(w *game.World) {
 	x0 := d.camX / d.px
@@ -152,6 +167,9 @@ func BlockBumpArt(remain, artPerTile int) int {
 
 // tile paints one terrain cell at an art-space origin.
 func (d drawer) tile(tx, ty int, tile level.Tile, dx, dy int, w *game.World) {
+	if d.px == 4 && d.tile4(tx, ty, tile, dx, dy, w) {
+		return
+	}
 	t := d.s.T
 	p := d.px
 	switch tile.Glyph {
@@ -238,9 +256,9 @@ func (d drawer) tile(tx, ty int, tile level.Tile, dx, dy int, w *game.World) {
 			d.c.FillRect(dx+p-inset-1, dy, 1, p, t.Outline)
 		}
 	case 'F':
-		d.c.FillRect(dx+p/2-1, dy, 2, p, t.HudMuted)
+		d.c.blitArt(cast4.Pole, dx, dy, d.castScale(), false, flagPalette(t))
 	case 'T':
-		d.c.FillRect(dx+p/4, dy+p/8, p/2, p/2, t.HudText)
+		d.c.blitArt(cast4.Ball, dx, dy, d.castScale(), false, flagPalette(t))
 	case 'o':
 		frame := (int(w.CameraX)/64 + tx) % len(d.set.Coin)
 		if frame < 0 {
@@ -252,43 +270,51 @@ func (d drawer) tile(tx, ty int, tile level.Tile, dx, dy int, w *game.World) {
 
 func (d drawer) items(w *game.World) {
 	for _, it := range w.Items {
-		dx := WorldToArtScaled(it.Pos.X, d.px) - d.camX
-		dy := WorldToArtScaled(it.Pos.Y, d.px) - d.camY
-		switch it.Kind {
-		case game.ItemMushroom:
-			d.draw(d.set.Mushroom, dx, dy)
-		case game.ItemStar:
-			d.draw(d.set.Star, dx, dy)
+		if it.Removed {
+			continue
+		}
+		d.standOn(cast4.Mushroom, &it.Body, false, mushroomPalette(d.s.T, it.Kind))
+	}
+}
+
+// enemies draws the Goombas and Koopas. The drawings face left; one walking
+// right is mirrored.
+func (d drawer) enemies(w *game.World) {
+	step := w.StepCount()
+	gp, kp := goombaPalette(d.s.T), koopaPalette(d.s.T)
+	for _, e := range w.Enemies {
+		if e.Removed {
+			continue
+		}
+		dx := WorldToArtScaled(e.Pos.X, d.px) - d.camX
+		if dx < -d.px*2 || dx > d.artW {
+			continue
+		}
+		flip := e.Facing > 0
+		switch e.Kind {
+		case game.EnemyGoomba:
+			if e.Squashed > 0 {
+				d.standOn(cast4.GoombaFlat, &e.Body, false, gp)
+			} else {
+				d.standOn(cast4.Goomba[walkFrame(step)], &e.Body, flip, gp)
+			}
+		case game.EnemyKoopa:
+			if e.Shell == game.KoopaWalking {
+				d.standOn(cast4.Koopa[walkFrame(step)], &e.Body, flip, kp)
+			} else {
+				d.standOn(cast4.Shell, &e.Body, false, kp)
+			}
 		}
 	}
 }
 
-func (d drawer) enemies(w *game.World) {
-	for _, e := range w.Enemies {
-		dx := WorldToArtScaled(e.Pos.X, d.px) - d.camX
-		dy := WorldToArtScaled(e.Pos.Y, d.px) - d.camY
-		if dx < -d.px*2 || dx > d.artW {
-			continue
-		}
-		if e.Squashed > 0 {
-			if e.Kind == game.EnemyGoomba {
-				d.draw(d.set.GoombaFlat, dx, dy)
-			} else {
-				d.draw(d.set.Shell, dx, dy)
-			}
-			continue
-		}
-		switch e.Kind {
-		case game.EnemyGoomba:
-			d.draw(d.set.Goomba, dx, dy)
-		case game.EnemyKoopa:
-			if e.Shell == game.KoopaWalking {
-				d.draw(d.set.Koopa, dx, dy)
-			} else {
-				d.draw(d.set.Shell, dx, dy)
-			}
-		}
-	}
+// flag hangs the cloth off the left of the pole, just under the ball.
+func (d drawer) flag(w *game.World) {
+	lv := w.Level
+	k := d.castScale()
+	poleX := lv.FlagX*d.px - d.camX + poleColumn*k
+	topY := (lv.FlagTop+1)*d.px - d.camY
+	d.c.blitArt(cast4.Cloth, poleX-cast4.Cloth.width()*k, topY, k, false, flagPalette(d.s.T))
 }
 
 // heroDesignPx is the resolution the hero was drawn at: four pixels to a tile.
@@ -389,9 +415,10 @@ func mirror(s Sprite) Sprite {
 	return Sprite{W: s.W, H: s.H, Rows: rows}
 }
 
-// HUDRow renders the status line.
+// HUDRow renders the status line. The coin count is the one on screen, which
+// catches up as each flying coin lands.
 func HUDRow(w *game.World, width int) string {
-	s := fmt.Sprintf("MARIO %06d   ⓒ×%02d", w.Score.Points, w.Score.Coins)
+	s := fmt.Sprintf("MARIO %06d   ⓒ×%02d", w.Score.Points, w.CoinsShown())
 	right := fmt.Sprintf("WORLD %s   TIME %03d   ♥×%d", w.Level.World, w.TimeLeft, w.Score.Lives)
 	gap := width - len([]rune(s)) - len([]rune(right))
 	if gap < 1 {

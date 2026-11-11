@@ -37,6 +37,11 @@ type Enemy struct {
 
 	// Squashed counts down the flattened frames after a stomp.
 	Squashed int
+	// Grace counts down the steps after a Koopa is turned into a shell or a
+	// shell is kicked, during which it ignores the player. Without it the shell
+	// is still overlapping him on the next step: a fresh shell would be kicked
+	// by the bounce off it, and a kicked one would hurt the foot that kicked it.
+	Grace int
 	// Removed marks an enemy that should be dropped from the world.
 	Removed bool
 	// Sliding direction is carried by Vel.X for shells.
@@ -55,10 +60,14 @@ func NewGoomba(col, row int) *Enemy {
 }
 
 // NewKoopa returns a walking Koopa at a cell.
+//
+// The drawing is a tile and a half long and one tile tall, its head held low in
+// front of the shell, so the box is low and long to match: what you see is what
+// you can stomp or run into.
 func NewKoopa(col, row int) *Enemy {
 	e := &Enemy{Kind: EnemyKoopa, Shell: KoopaWalking}
-	e.W = engine.FromFloat(13)
-	e.H = engine.FromFloat(22)
+	e.W = engine.FromFloat(20)
+	e.H = engine.FromFloat(14)
 	e.Facing = -1
 	e.Vel.X = -Default.EnemyWalkSpeed
 	e.Active = false
@@ -83,6 +92,9 @@ func (e *Enemy) update(lv *level.Level, t *Tuning) {
 	}
 	if e.Removed {
 		return
+	}
+	if e.Grace > 0 {
+		e.Grace--
 	}
 
 	// Gravity always applies, so walking off a ledge falls naturally.
@@ -133,27 +145,37 @@ func (e *Enemy) stomp(t *Tuning) (score int, bounce bool) {
 			e.toShell()
 			return 100, true
 		case KoopaShell:
-			// Standing on a shell kicks it away from the player.
+			// Standing on a resting shell kicks it; the world does the kick,
+			// since it knows where the player landed.
 			return 400, true
 		case KoopaSliding:
 			e.Vel.X = 0
 			e.Shell = KoopaShell
+			e.Grace = shellGrace
 			return 400, true
 		}
 	}
 	return 0, false
 }
 
-// toShell shrinks a walking Koopa into a stationary shell.
+// toShell turns a walking Koopa into a stationary shell, narrower than the
+// walking body because the head and feet are tucked in.
 func (e *Enemy) toShell() {
 	e.Shell = KoopaShell
 	e.Vel.X = 0
-	oldBottom := e.Bottom()
-	e.H = engine.FromFloat(14)
+	oldBottom, oldCentre := e.Bottom(), e.CenterX()
+	e.W = engine.FromFloat(14)
+	e.H = engine.FromFloat(12)
+	e.Pos.X = oldCentre - e.W/2
 	e.Pos.Y = oldBottom - e.H
+	e.Grace = shellGrace
 }
 
-// kick sends a stationary shell sliding, away from the given point.
+// shellGrace is how long a shell ignores the player after changing state.
+const shellGrace = 10
+
+// kick sends a stationary shell sliding, away from the given point: a shell
+// stomped or touched on its left half flies right, on its right half left.
 func (e *Enemy) kick(fromX engine.Fixed, t *Tuning) {
 	if e.Kind != EnemyKoopa || e.Shell != KoopaShell {
 		return
@@ -165,6 +187,7 @@ func (e *Enemy) kick(fromX engine.Fixed, t *Tuning) {
 	e.Shell = KoopaSliding
 	e.Vel.X = engine.Fixed(dir) * t.ShellSpeed
 	e.Facing = dir
+	e.Grace = shellGrace
 }
 
 // stompScore returns the escalating combo score for the n-th consecutive stomp.

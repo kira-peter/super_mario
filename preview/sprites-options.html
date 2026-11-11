@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>角色素材对比</title>
+<style>
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --fg: #1c1d20; --muted: #65676d;
+  --border: #dedbd6; --accent: #c0392b;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font);
+  padding: 28px 16px 64px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 4px; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 74ch; }
+.layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1040px) { .layout { grid-template-columns: minmax(0, 1fr) 540px; } }
+.preview {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+@media (min-width: 1040px) { .preview { position: sticky; top: 16px; } }
+.preview h2 { margin: 0; }
+canvas { display: block; image-rendering: pixelated; background: #12141a; border-radius: 3px; }
+canvas.fluid { width: 100%; height: auto; }
+.cap { color: var(--muted); font-size: 12.5px; }
+.row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.real { max-width: 100%; }
+.summary {
+  font-family: var(--mono); font-size: 12.5px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+  overflow-wrap: anywhere; user-select: all; white-space: pre-wrap;
+}
+.tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+section.cat { margin-bottom: 30px; }
+section.cat .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; max-width: 70ch; }
+.opts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.opt {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px; cursor: pointer; min-width: 0;
+}
+.opt:hover { border-color: var(--muted); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.opt canvas { width: 100%; height: auto; }
+.opt .nm { font-size: 13.5px; font-weight: 600; }
+.opt .nm i { font-style: normal; color: var(--accent); margin-right: 6px; font-family: var(--mono); }
+.opt .ds { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.note { color: var(--muted); font-size: 13px; max-width: 76ch; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>角色素材对比</h1>
+  <p class="lede">
+    蘑菇、蘑菇怪、乌龟、旗子各有几种画法。点选一个就合成进右边的场景，鼠标悬停会临时换上，方便来回比。
+    全部按游戏默认的 4 像素一格画，尺寸和碰撞框一致：蘑菇、蘑菇怪约 4×4，乌龟约 4×6。地形用的是你上次选的方案。
+  </p>
+
+  <div class="layout">
+    <div id="cats"></div>
+
+    <aside class="preview" aria-label="合成预览">
+      <h2>合成预览</h2>
+      <canvas id="big" class="fluid" width="1" height="1"></canvas>
+      <div class="row">
+        <canvas id="real" class="real" width="1" height="1"></canvas>
+        <span class="cap">← 接近终端里的真实大小</span>
+      </div>
+      <div class="tools">
+        <label class="chk"><input type="checkbox" id="grid"> 像素网格</label>
+        <label class="chk"><input type="checkbox" id="pause"> 暂停动画</label>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="tools">
+        <button id="copy">复制我的选择</button>
+        <button id="reset">全部恢复为现状</button>
+        <span class="cap" id="copied" role="status"></span>
+      </div>
+      <p class="note">
+        场景从左到右：小人、蘑菇（问号块下面）、蘑菇怪和它被踩扁的样子、乌龟和它的壳、终点旗杆。
+        「现状」是现在 8 像素的图硬缩到 4 像素的近似效果，这也是它们现在看起来糊的原因。
+      </p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* Terrain, fixed to the options chosen last time. */
+  var TER = {
+    G: "#c98a4b", d: "#7f4d22",
+    b: "#b8693f", m: "#7a4a2e", o: "#4a3220",
+    s: "#8a909e", S: "#b7bcc9", t: "#5b606d",
+    "?": "#e0b060", h: "#fff3b0"
+  };
+  var GROUND = ["GGGG", "dddd", "dddd", "dddd"], GROUND_LOW = ["dddd", "dddd", "dddd", "dddd"];
+  var BRICK = [["bbmb", "mmmm", "bmbb", "mmmm"], ["bmbb", "mmmm", "bbmb", "mmmm"]];
+  var QBLOCK = [["oooo", "o??o", "o??o", "oooo"], ["oooo", "ohho", "ohho", "oooo"]];
+  var STAIR = ["SSSS", "Ssst", "Ssst", "tttt"];
+
+  /* Characters: one letter, one colour. '.' is transparent. */
+  var ENT = {
+    K: "#241a14", W: "#f2f4f8",
+    R: "#d94a3d", r: "#8f2a22", S: "#f0d8b0", g: "#4caf50", u: "#2f7a33",   /* mushroom */
+    T: "#a0602e", D: "#5e3518", f: "#e6b07a", H: "#2e2018",                 /* goomba */
+    Y: "#f0c860", G: "#3f9a3f", L: "#8fd46e", e: "#c8402f", E: "#7a2018",   /* koopa */
+    P: "#b7bcc9", p: "#7a8090", O: "#6b7280", Q: "#f2f4f8",                 /* pole */
+    N: "#f5c842", n: "#c9951f", F: "#e0483a", V: "#4caf50", w: "#f2f4f8", X: "#1a1a1a",
+    A: "#e07a2a",                                                           /* goomba feet, orange */
+    B: "#3d7fe0", j: "#1f4a99", M: "#a056d6", m: "#5e2a85"                  /* blue, purple mushrooms */
+  };
+
+  /* Mushrooms all share the E shape; only the cap colour and its shaded rim
+     change, and the colour is what says what it does. */
+  var SHROOM = {
+    red:    { cap: "R", rim: "r", what: "变大" },
+    green:  { cap: "g", rim: "u", what: "加命" },
+    blue:   { cap: "B", rim: "j", what: "无敌" },
+    purple: { cap: "M", rim: "m", what: "毒" },
+    gold:   { cap: "N", rim: "n", what: "金币" }
+  };
+  function shroom(name) {
+    var c = SHROOM[name].cap, d = SHROOM[name].rim;
+    return ["." + c + c + ".", c + "W" + c + c, d + d + d + d, ".SS."];
+  }
+  var HERO = { R: "#d94a3d", S: "#f0b088", B: "#3a5fc8", O: "#6b7280", Q: "#f2f4f8" };
+  var HERO_ROWS = ["..RR..", "..SS..", ".RRRRS", ".SBBB.", "......", "..QO..", "..OO.."];
+
+  var TS = 4;
+  var W = 18, H = 8;      /* scene, in tiles */
+  var FLOOR = 6 * TS;     /* the ground line, in art pixels */
+
+  /* The koopa's shell and feet are settled; only the head varies. Given the
+     top five rows, this appends the two settled feet frames. */
+  function koopa(top) { return [top.concat(["..Y..Y"]), top.concat(["...YY."])]; }
+
+  /* Each option has `frames` (an animation; one frame means still). Goombas
+     also have `flat`, koopas `shell`. A flag has a pole tile, a ball tile and
+     flag frames that hang off the pole's left edge. */
+  var CATS = [
+    {
+      key: "mushroom", title: "蘑菇（颜色 = 功能）",
+      sub: "形状都用你选的 E「暗边立体」：圆帽、白点、帽下沿压暗、短柄。不同颜色对应不同功能，这里比较的是放几种、各是什么。",
+      opts: [
+        { name: "三种", ds: "红色变大、绿色加命、蓝色无敌。",
+          set: ["red", "green", "blue"] },
+        { name: "四种 + 毒", ds: "再加一个紫色毒蘑菇，吃了掉一级，要躲开。",
+          set: ["red", "green", "blue", "purple"] },
+        { name: "四种 + 金", ds: "再加一个金色蘑菇，吃了加 5 个金币。",
+          set: ["red", "green", "blue", "gold"] },
+        { name: "五种", ds: "红、绿、蓝、紫、金全有。",
+          set: ["red", "green", "blue", "purple", "gold"] }
+      ]
+    },
+    {
+      key: "goomba", title: "蘑菇怪",
+      sub: "最常见的敌人，要和蘑菇道具分得开：颜色用棕色，脸上要有眼睛，脚要会动。右边小图是被踩扁的样子。D 后面三个是只换脚色的版本。",
+      opts: [
+        { name: "现状（近似）", ds: "缩小后眼睛只剩一个点，脚不动。",
+          frames: [[".TT.", "TWKT", "TTTT", "H..H"]],
+          flat: ["....", "....", "TWWT", "HHHH"] },
+        { name: "怒眉", ds: "黑色眉毛压着白眼，凶一点，两只脚交替。",
+          frames: [["TTTT", "KWWK", "DTTD", "H.H."], ["TTTT", "KWWK", "DTTD", ".H.H"]], speed: 3,
+          flat: ["....", "....", "KTTK", "HHHH"] },
+        { name: "浅脸", ds: "深棕帽子、浅色脸，脸和帽子分两层。",
+          frames: [[".DD.", "DDDD", "fKKf", "H..H"], [".DD.", "DDDD", "fKKf", ".HH."]], speed: 3,
+          flat: ["....", "....", "DDDD", "fHHf"] },
+        { name: "五格宽", ds: "宽一格，大脑袋小脚，更圆更萌。",
+          frames: [[".TTT.", "TWTWT", "TTTTT", "HH.HH"], [".TTT.", "TWTWT", "TTTTT", ".H.H."]], speed: 3,
+          flat: [".....", ".....", "TWTWT", "HHHHH"] },
+        { name: "五格宽·深棕脚", ds: "脚换成帽子那种深棕，比原来亮一档，和身体同色系。",
+          frames: [[".TTT.", "TWTWT", "TTTTT", "DD.DD"], [".TTT.", "TWTWT", "TTTTT", ".D.D."]], speed: 3,
+          flat: [".....", ".....", "TWTWT", "DDDDD"] },
+        { name: "五格宽·橙脚", ds: "脚换成橙色，在深色背景上最显眼。",
+          frames: [[".TTT.", "TWTWT", "TTTTT", "AA.AA"], [".TTT.", "TWTWT", "TTTTT", ".A.A."]], speed: 3,
+          flat: [".....", ".....", "TWTWT", "AAAAA"] },
+        { name: "五格宽·浅黄脚", ds: "脚换成浅黄，和棕色身体反差最大，像穿了鞋。",
+          frames: [[".TTT.", "TWTWT", "TTTTT", "ff.ff"], [".TTT.", "TWTWT", "TTTTT", ".f.f."]], speed: 3,
+          flat: [".....", ".....", "TWTWT", "fffff"] },
+        { name: "眨眼", ds: "怒眉造型，偶尔闭一下眼。",
+          frames: [["TTTT", "KWWK", "DTTD", "H.H."], ["TTTT", "KWWK", "DTTD", ".H.H"],
+                   ["TTTT", "KWWK", "DTTD", "H.H."], ["TTTT", "KDDK", "DTTD", ".H.H"]], speed: 3,
+          flat: ["....", "....", "KTTK", "HHHH"] },
+        { name: "左右晃", ds: "整个身子随步子左右歪一像素，走路感最强。",
+          frames: [["TTT.", "WKWT", "TTTT", "H..H"], [".TTT", "TWKW", "TTTT", "H..H"]], speed: 3,
+          flat: ["....", "....", "TWWT", "HHHH"] }
+      ]
+    },
+    {
+      key: "koopa", title: "乌龟（头部）",
+      sub: "壳和脚已经定了：两行绿壳加一行白边，脚一开一合。这里只比较头，都是一两个像素的简单头，朝左走。右边小图是被踩后的壳。",
+      opts: [
+        { name: "定稿", ds: "2×2 方头，脖子斜接到白边，脚一开一合。",
+          frames: koopa(["......", "......", "YY.GG.", "YYGLGL", ".YWWWW"]), speed: 3,
+          shell: [".GG.", "GLGL", "WWWW"] },
+        { name: "你的草图", ds: "一格头加一格脖子，斜着伸出去。",
+          frames: koopa(["......", "......", "Y..GG.", ".YGLGL", "..WWWW"]), speed: 3,
+          shell: [".GG.", "GLGL", "WWWW"] },
+        { name: "黑点头", ds: "你的草图，头那一格换成黑色，像只眼睛。",
+          frames: koopa(["......", "......", "K..GG.", ".YGLGL", "..WWWW"]), speed: 3,
+          shell: [".GG.", "GLGL", "WWWW"] },
+        { name: "短探头", ds: "只有一格，贴在壳前面，最简单。",
+          frames: koopa(["......", "......", "...GG.", ".YGLGL", "..WWWW"]), speed: 3,
+          shell: [".GG.", "GLGL", "WWWW"] },
+        { name: "横伸", ds: "两格平着往前伸，像乌龟在爬。",
+          frames: koopa(["......", "......", "...GG.", "YYGLGL", "..WWWW"]), speed: 3,
+          shell: [".GG.", "GLGL", "WWWW"] },
+        { name: "竖起", ds: "两格竖着立在壳前，像在抬头看。",
+          frames: koopa(["......", "......", ".Y.GG.", ".YGLGL", "..WWWW"]), speed: 3,
+          shell: [".GG.", "GLGL", "WWWW"] },
+        { name: "高斜脖", ds: "你的草图整体抬高一行，脖子更长，比蘑菇怪高。",
+          frames: koopa(["......", "Y.....", ".Y.GG.", "..GLGL", "..WWWW"]), speed: 3,
+          shell: [".GG.", "GLGL", "WWWW"] }
+      ]
+    },
+    {
+      key: "flag", title: "旗子",
+      sub: "现在只有一根灰杆和一个白方块，没有旗面。旗面挂在杆的左边，杆顶有个球。",
+      opts: [
+        { name: "现状", ds: "两像素灰杆，顶上白方块，没有旗。",
+          pole: [".OO.", ".OO.", ".OO.", ".OO."], ball: [".QQ.", ".QQ.", "....", "...."], frames: [] },
+        { name: "红三角旗", ds: "一像素细杆，金球，红色三角旗，静止不动。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["....F", "..FFF", "FFFFF", "..FFF", "....F"]] },
+        { name: "三角旗·摆尾", ds: "三角旗的尖在上、中、下之间来回摆，像被风吹着。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["...FF", "FFFFF", "..FFF", "...FF", "....F"],
+                   ["....F", "..FFF", "FFFFF", "..FFF", "....F"],
+                   ["....F", "...FF", "..FFF", "FFFFF", "...FF"],
+                   ["....F", "..FFF", "FFFFF", "..FFF", "....F"]], speed: 3 },
+        { name: "三角旗·波纹", ds: "旗形不变，一道深红褶皱从旗杆往旗尖跑，像布在抖。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["....F", "..FFr", "FFFFr", "..FFr", "....F"],
+                   ["....F", "..FrF", "FFFrF", "..FrF", "....F"],
+                   ["....F", "..rFF", "FFrFF", "..rFF", "....F"],
+                   ["....F", "..FFF", "FrFFF", "..FFF", "....F"]], speed: 2 },
+        { name: "三角旗·摆尾加波纹", ds: "尖在摆，旗面上还有褶皱，飘动感最强。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["...Fr", "FFFFr", "..FFr", "...Fr", "....F"],
+                   ["....F", "..FrF", "FFFrF", "..FrF", "....F"],
+                   ["....F", "...rF", "..rFF", "FFrFF", "...rF"],
+                   ["....F", "..FFF", "FrFFF", "..FFF", "....F"]], speed: 3 },
+        { name: "小三角·摆尾", ds: "小一号的三角旗，4×3，尖上下摆。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["FFFF", "..FF", "...F"], ["..FF", "FFFF", "..FF"],
+                   ["...F", "..FF", "FFFF"], ["..FF", "FFFF", "..FF"]], speed: 3 },
+        { name: "绿色方旗", ds: "两像素立体杆，绿旗中间一道白条。",
+          pole: [".Pp.", ".Pp.", ".Pp.", ".Pp."], ball: ["....", ".NN.", "NNnn", ".nn."],
+          frames: [["VVVV", "wwww", "VVVV"]] },
+        { name: "飘动红旗", ds: "红色方旗，旗面上下起伏像在风里。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [[".FFF", "FFFF", "FFF.", "...."], ["FFF.", "FFFF", ".FFF", "...."]], speed: 3 },
+        { name: "格子终点旗", ds: "黑白格子，一看就是终点。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["wXwXw", "XwXwX", "wXwXw"]] },
+        { name: "飘动格子旗", ds: "格子旗，形状不变，黑白两色来回互换。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["XwXwX", "wXwXw", "XwXwX", "wXwXw"], ["wXwXw", "XwXwX", "wXwXw", "XwXwX"]], speed: 4 },
+        { name: "燕尾旗", ds: "红色旗尾开叉，比三角旗大一点。",
+          pole: [".P..", ".P..", ".P..", ".P.."], ball: ["....", "....", ".N..", "NNn."],
+          frames: [["FFFFF", ".FFFF", "..FFF", ".FFFF", "FFFFF"]] }
+      ]
+    }
+  ];
+
+  /* A mushroom option is a set of colours; give it frames so the shared code
+     can treat it like any other sprite. */
+  CATS[0].opts.forEach(function (o) {
+    o.list = o.set.map(shroom);
+    o.frames = [o.list[0]];
+  });
+
+  var state = { sel: {}, hover: null, t: 0, grid: false, paused: false };
+  CATS.forEach(function (c) { state.sel[c.key] = 0; });
+
+  function effective() {
+    var s = {};
+    CATS.forEach(function (c) { s[c.key] = state.sel[c.key]; });
+    if (state.hover) s[state.hover.key] = state.hover.i;
+    return s;
+  }
+
+  function frameOf(opt, t) {
+    if (!opt.frames.length) return null;
+    var step = Math.floor(t / (opt.speed || 2));
+    return opt.frames[step % opt.frames.length];
+  }
+
+  function paint(ctx, z, rows, px, py, pal) {
+    for (var r = 0; r < rows.length; r++) {
+      for (var c = 0; c < rows[r].length; c++) {
+        var col = pal[rows[r].charAt(c)];
+        if (col) { ctx.fillStyle = col; ctx.fillRect((px + c) * z, (py + r) * z, z, z); }
+      }
+    }
+  }
+
+  /* Draws a sprite standing on a floor line. */
+  function stand(ctx, z, rows, px, floor) { paint(ctx, z, rows, px, floor - rows.length, ENT); }
+
+  function poleLeft(opt) { return opt.pole[0].search(/[^.]/); }
+
+  /* Draws a flagpole whose ball sits in tile row `top` and whose shaft runs
+     down to the floor. */
+  function drawFlag(ctx, z, opt, tx, top, floorTile, t) {
+    paint(ctx, z, opt.ball, tx * TS, top * TS, ENT);
+    for (var y = top + 1; y < floorTile; y++) paint(ctx, z, opt.pole, tx * TS, y * TS, ENT);
+    var f = frameOf(opt, t);
+    if (f) paint(ctx, z, f, tx * TS + poleLeft(opt) - f[0].length, (top + 1) * TS, ENT);
+  }
+
+  function drawScene(ctx, z, sel, t) {
+    var mo = CATS[0].opts[sel.mushroom], go = CATS[1].opts[sel.goomba],
+        ko = CATS[2].opts[sel.koopa], fo = CATS[3].opts[sel.flag];
+    var x, y;
+
+    ctx.fillStyle = "#12141a";
+    ctx.fillRect(0, 0, W * TS * z, H * TS * z);
+
+    for (x = 0; x < W; x++) {
+      paint(ctx, z, GROUND, x * TS, 6 * TS, TER);
+      paint(ctx, z, GROUND_LOW, x * TS, 7 * TS, TER);
+    }
+    /* a row of bricks with a question block in it; the mushrooms stand on top */
+    for (x = 2; x <= 7; x++) paint(ctx, z, BRICK[x % 2], x * TS, 3 * TS, TER);
+    paint(ctx, z, QBLOCK[Math.floor(t / 4) % 2], 5 * TS, 3 * TS, TER);
+    /* a stair in front of the flag */
+    for (y = 5; y >= 4; y--) paint(ctx, z, STAIR, 14 * TS, y * TS, TER);
+    paint(ctx, z, STAIR, 13 * TS, 5 * TS, TER);
+
+    paint(ctx, z, HERO_ROWS, 1 * TS + 1, FLOOR - HERO_ROWS.length, HERO);
+    mo.list.forEach(function (m, i) { stand(ctx, z, m, 2 * TS + i * 5, 3 * TS); });
+    stand(ctx, z, frameOf(go, t), 7 * TS + 2, FLOOR);
+    stand(ctx, z, go.flat, 8 * TS + 3, FLOOR);
+    stand(ctx, z, frameOf(ko, t), 10 * TS, FLOOR);
+    stand(ctx, z, ko.shell, 11 * TS + 2, FLOOR);
+    drawFlag(ctx, z, fo, 16, 0, 6, t);
+
+    if (state.grid && z >= 8) {
+      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath();
+      for (var gx = 0; gx <= W * TS; gx++) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, H * TS * z); }
+      for (var gy = 0; gy <= H * TS; gy++) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(W * TS * z, gy * z + 0.5); }
+      ctx.stroke();
+    }
+  }
+
+  /* A swatch is 24x12 art pixels: the option on a strip of ground. */
+  var SWW = 24, SWH = 12;
+  function drawSwatch(ctx, z, cat, opt, t) {
+    ctx.fillStyle = "#12141a"; ctx.fillRect(0, 0, SWW * z, SWH * z);
+    var floor = SWH - 2;
+    for (var x = 0; x < SWW / TS; x++) paint(ctx, z, ["GGGG", "dddd"], x * TS, floor, TER);
+    if (cat.key === "mushroom") {
+      opt.list.forEach(function (m, i) { stand(ctx, z, m, i * 5, floor); });
+    } else if (cat.key === "goomba") {
+      stand(ctx, z, frameOf(opt, t), 2, floor);
+      stand(ctx, z, opt.flat, 9, floor);
+    } else if (cat.key === "koopa") {
+      stand(ctx, z, frameOf(opt, t), 2, floor);
+      stand(ctx, z, opt.shell, 9, floor);
+    } else {
+      /* ball at the top, two tiles of pole, scaled to fit the swatch */
+      paint(ctx, z, opt.ball, 9, -2, ENT);
+      paint(ctx, z, opt.pole, 9, 2, ENT);
+      paint(ctx, z, opt.pole, 9, 6, ENT);
+      var f = frameOf(opt, t);
+      if (f) paint(ctx, z, f, 9 + poleLeft(opt) - f[0].length, 2, ENT);
+    }
+  }
+
+  var SW = 8;
+  var swatches = [];
+
+  function buildCats() {
+    var host = document.getElementById("cats");
+    CATS.forEach(function (cat) {
+      var sec = document.createElement("section"); sec.className = "cat";
+      var h = document.createElement("h2"); h.textContent = cat.title; sec.appendChild(h);
+      var sub = document.createElement("p"); sub.className = "sub"; sub.textContent = cat.sub; sec.appendChild(sub);
+      var grid = document.createElement("div"); grid.className = "opts"; sec.appendChild(grid);
+
+      cat.opts.forEach(function (opt, i) {
+        var label = document.createElement("label"); label.className = "opt" + (i === 0 ? " on" : "");
+        var input = document.createElement("input");
+        input.type = "radio"; input.name = "cat-" + cat.key; input.value = String(i);
+        if (i === 0) input.checked = true;
+
+        var cv = document.createElement("canvas");
+        cv.width = SWW * SW; cv.height = SWH * SW;
+
+        var nm = document.createElement("span"); nm.className = "nm";
+        var letter = document.createElement("i"); letter.textContent = String.fromCharCode(65 + i);
+        nm.appendChild(letter); nm.appendChild(document.createTextNode(opt.name));
+        var ds = document.createElement("span"); ds.className = "ds"; ds.textContent = opt.ds;
+
+        label.appendChild(input); label.appendChild(cv); label.appendChild(nm); label.appendChild(ds);
+        grid.appendChild(label);
+
+        input.addEventListener("change", function () {
+          state.sel[cat.key] = i;
+          Array.prototype.forEach.call(grid.children, function (el, k) { el.classList.toggle("on", k === i); });
+          refresh();
+        });
+        function over() { state.hover = { key: cat.key, i: i }; refreshScene(); }
+        function out() { state.hover = null; refreshScene(); }
+        label.addEventListener("mouseenter", over);
+        label.addEventListener("mouseleave", out);
+        input.addEventListener("focus", over);
+        input.addEventListener("blur", out);
+
+        swatches.push({ cat: cat, opt: opt, ctx: cv.getContext("2d") });
+      });
+      host.appendChild(sec);
+    });
+  }
+
+  var BIG = 7, REAL = 4;
+  var bigCv, realCv;
+
+  function refreshScene() {
+    var sel = effective();
+    drawScene(bigCv.getContext("2d"), BIG, sel, state.t);
+    drawScene(realCv.getContext("2d"), REAL, sel, state.t);
+  }
+  function refreshSwatches() {
+    swatches.forEach(function (s) { drawSwatch(s.ctx, SW, s.cat, s.opt, state.t); });
+  }
+  function summaryText() {
+    var parts = [], code = [];
+    CATS.forEach(function (c) {
+      var i = state.sel[c.key];
+      parts.push(c.title + " " + String.fromCharCode(65 + i) + "「" + c.opts[i].name + "」");
+      code.push(c.key + "=" + String.fromCharCode(65 + i));
+    });
+    return parts.join(" · ") + "\n" + code.join(" ");
+  }
+  function refresh() {
+    refreshScene();
+    refreshSwatches();
+    document.getElementById("summary").textContent = summaryText();
+  }
+
+  function init() {
+    bigCv = document.getElementById("big");
+    realCv = document.getElementById("real");
+    bigCv.width = W * TS * BIG; bigCv.height = H * TS * BIG;
+    realCv.width = W * TS * REAL; realCv.height = H * TS * REAL;
+
+    buildCats();
+    refresh();
+
+    document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; refresh(); });
+    var pause = document.getElementById("pause");
+    pause.addEventListener("change", function (e) { state.paused = e.target.checked; });
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      pause.checked = true; state.paused = true;
+    }
+
+    document.getElementById("reset").addEventListener("click", function () {
+      CATS.forEach(function (c) { state.sel[c.key] = 0; });
+      Array.prototype.forEach.call(document.querySelectorAll(".opts"), function (grid) {
+        Array.prototype.forEach.call(grid.children, function (el, k) {
+          el.classList.toggle("on", k === 0);
+          el.querySelector("input").checked = (k === 0);
+        });
+      });
+      refresh();
+    });
+
+    var copied = document.getElementById("copied");
+    document.getElementById("copy").addEventListener("click", function () {
+      var text = summaryText();
+      var done = function (msg) { copied.textContent = msg; setTimeout(function () { copied.textContent = ""; }, 2400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done("已复制"); }, function () { done("复制失败，请手动选中上面的文字"); });
+      } else {
+        done("请手动选中上面的文字复制");
+      }
+    });
+
+    setInterval(function () {
+      if (state.paused) return;
+      state.t++;
+      refreshScene();
+      refreshSwatches();
+    }, 150);
+  }
+
+  window.__SPRITES__ = { CATS: CATS, ENT: ENT };
+  init();
+})();
+</script>
+</body>
+</html>

@@ -16,6 +16,9 @@ const ArtPerTile = 16
 type Scene struct {
 	T     theme.Tokens
 	Theme string
+	// Sky holds the drifting clouds. Nil draws a clear sky, which is what the
+	// tests that count pixels want.
+	Sky *Sky
 }
 
 // Draw renders the world into a canvas sized for the given terminal geometry.
@@ -57,6 +60,7 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 	d := drawer{c: c, s: s, px: colsPerTile, set: set,
 		camX: camX, camY: camY, artW: artW, artH: artH}
 
+	d.clouds(w)
 	d.terrain(w)
 	d.flag(w)
 	d.items(w)

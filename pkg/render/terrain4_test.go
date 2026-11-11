@@ -14,9 +14,11 @@ import (
 // four cells wide and four tall, and uses only letters the theme can resolve.
 func TestTerrainPatternsAreFourByFour(t *testing.T) {
 	all := map[string]pattern4{
-		"ground top":   terrain4.GroundTop,
 		"ground below": terrain4.GroundBelow,
 		"stair":        terrain4.Stair,
+	}
+	for i, p := range terrain4.GroundTop {
+		all["ground top "+string(rune('A'+i))] = p
 	}
 	for i, p := range terrain4.Brick {
 		all["brick "+string(rune('A'+i))] = p
@@ -44,24 +46,33 @@ func TestTerrainPatternsAreFourByFour(t *testing.T) {
 	}
 }
 
-// TestGroundHasOneCrustAtTheTop is the rule behind the "lower layers do not
-// repeat the bright edge" setting: only the top of the ground has a crust.
-func TestGroundHasOneCrustAtTheTop(t *testing.T) {
-	if !strings.Contains(terrain4.GroundTop[0], "G") {
-		t.Error("the top of the ground has no bright crust")
+// TestGroundHasTurfOnlyAtTheTop is the rule behind "lower layers do not repeat
+// the edge": only the top of the ground has turf.
+func TestGroundHasTurfOnlyAtTheTop(t *testing.T) {
+	for i, p := range terrain4.GroundTop {
+		if !strings.ContainsAny(p[0], "rR") {
+			t.Errorf("ground top %d has no turf in its first row", i)
+		}
 	}
 	for r, row := range terrain4.GroundBelow {
-		if strings.Contains(row, "G") {
-			t.Errorf("a lower ground layer has a crust in row %d, which would cut a stripe through the earth", r)
+		if strings.ContainsAny(row, "rRG") {
+			t.Errorf("a lower ground layer has turf in row %d, which would cut a stripe through the earth", r)
 		}
 	}
 }
 
-// TestGroundIsDarkSoil checks the chosen ground: a crust over dark soil.
-func TestGroundIsDarkSoil(t *testing.T) {
-	want := pattern4{"GGGG", "dddd", "dddd", "dddd"}
+// TestGroundIsDarkSoilUnderTurf checks the chosen ground: one row of turf in
+// two alternating patterns, over dark soil.
+func TestGroundIsDarkSoilUnderTurf(t *testing.T) {
+	want := [2]pattern4{
+		{"rrRr", "dddd", "dddd", "dddd"},
+		{"rRrr", "dddd", "dddd", "dddd"},
+	}
 	if terrain4.GroundTop != want {
 		t.Errorf("ground top = %v, want %v", terrain4.GroundTop, want)
+	}
+	if terrain4.GroundTop[0][0] == terrain4.GroundTop[1][0] {
+		t.Error("both turf patterns are the same, so a long floor is one repeated stamp")
 	}
 }
 
@@ -102,7 +113,8 @@ func TestBrickIsMostlyBrick(t *testing.T) {
 // with the ground, which is what the old drawing got wrong.
 func TestStairIsADifferentMaterialFromTheGround(t *testing.T) {
 	stair := strings.Join(terrain4.Stair[:], "")
-	ground := strings.Join(terrain4.GroundTop[:], "") + strings.Join(terrain4.GroundBelow[:], "")
+	ground := strings.Join(terrain4.GroundTop[0][:], "") + strings.Join(terrain4.GroundTop[1][:], "") +
+		strings.Join(terrain4.GroundBelow[:], "")
 	for _, ch := range stair {
 		if strings.ContainsRune(ground, ch) {
 			t.Errorf("the stair uses %q, which the ground also uses", string(ch))
@@ -193,7 +205,7 @@ func TestCoinIsAShadedRound(t *testing.T) {
 // colour at its zero value, which would draw as the terminal's default colour.
 func TestEveryThemeColoursTheNewTerrain(t *testing.T) {
 	for name, tk := range map[string]theme.Tokens{"ink": theme.Ink, "paper": theme.Paper} {
-		for _, ch := range []byte("GdbmSstoh?$*c") {
+		for _, ch := range []byte("GrRdbmSstoh?$*c") {
 			col, ok := terrainColor(tk, ch)
 			if !ok {
 				t.Errorf("%s: letter %q has no colour", name, string(ch))
@@ -246,20 +258,20 @@ func countColour(c *Canvas, want interface{}) int {
 	return n
 }
 
-// TestRenderedGroundHasOneCrustRow checks the real level: through the whole
-// pipeline, exactly one row in four of the visible ground is crust, because the
-// ground is two tiles deep and only the top one carries it.
-func TestRenderedGroundHasOneCrustRow(t *testing.T) {
+// TestRenderedGroundHasOneTurfRow checks the real level: through the whole
+// pipeline, exactly one row of a column of ground is turf, because the ground
+// is two tiles deep and only the top one carries it.
+func TestRenderedGroundHasOneTurfRow(t *testing.T) {
 	c := renderedAt(t, 3, 10)
 	tk := theme.Ink
-	crustRows := 0
+	turfRows := 0
 	for y := 0; y < c.H; y++ {
-		if c.Px[y*c.W+8] == tk.GroundEdge {
-			crustRows++
+		if p := c.Px[y*c.W+8]; p == tk.Cast.Grass || p == tk.Cast.GrassDark {
+			turfRows++
 		}
 	}
-	if crustRows != 1 {
-		t.Errorf("a column of ground has %d crust rows, want exactly 1 however deep the ground is", crustRows)
+	if turfRows != 1 {
+		t.Errorf("a column of ground has %d turf rows, want exactly 1 however deep the ground is", turfRows)
 	}
 }
 

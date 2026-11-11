@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>天空与地面对比</title>
+<style>
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --fg: #1c1d20; --muted: #65676d;
+  --border: #dedbd6; --accent: #c0392b;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font);
+  padding: 28px 16px 64px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 4px; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 76ch; }
+.layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1080px) { .layout { grid-template-columns: minmax(0, 1fr) 560px; } }
+.preview {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+@media (min-width: 1080px) { .preview { position: sticky; top: 16px; } }
+.preview h2 { margin: 0; }
+canvas { display: block; image-rendering: pixelated; border-radius: 3px; }
+canvas.fluid { width: 100%; height: auto; }
+.hud {
+  font-family: var(--mono); font-size: 12.5px; padding: 2px 8px; border-radius: 3px;
+  white-space: pre; overflow: hidden; text-overflow: clip; margin-top: -8px;
+}
+.cap { color: var(--muted); font-size: 12.5px; }
+.summary {
+  font-family: var(--mono); font-size: 12.5px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+  overflow-wrap: anywhere; user-select: all; white-space: pre-wrap;
+}
+.tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+section.cat { margin-bottom: 30px; }
+section.cat .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; max-width: 72ch; }
+.opts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.opt {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px; cursor: pointer; min-width: 0;
+}
+.opt:hover { border-color: var(--muted); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.opt canvas { width: 100%; height: auto; }
+.opt .nm { font-size: 13.5px; font-weight: 600; }
+.opt .nm i { font-style: normal; color: var(--accent); margin-right: 6px; font-family: var(--mono); }
+.opt .ds { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>天空与地面对比</h1>
+  <p class="lede">
+    这次换天空、云、远景和地面。方向是这类横版平台游戏常见的样子：蓝天、白云、山丘草丛、一块块的地面，
+    但都是按 4 像素一格重新画的，不是照搬原版的像素图。每个选项卡片里都是整个场景，只换了那一项，所以能直接看出它和其他东西搭不搭。
+    点选会合成进右边的大图，鼠标悬停会临时换上。
+  </p>
+
+  <div class="layout">
+    <div id="cats"></div>
+
+    <aside class="preview" aria-label="合成预览">
+      <h2>合成预览</h2>
+      <canvas id="big" class="fluid" width="1" height="1"></canvas>
+      <div class="hud" id="hud">MARIO 000200   ⓒ×03          WORLD 1-1   TIME 372   ♥×3</div>
+      <span class="cap">大图大约就是终端里的真实大小。下面那一行是状态栏，它的底色跟着天空走。</span>
+      <div class="tools">
+        <label class="chk"><input type="checkbox" id="grid"> 格子线</label>
+        <label class="chk"><input type="checkbox" id="pause"> 暂停动画</label>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="tools">
+        <button id="copy">复制我的选择</button>
+        <button id="reset">全部恢复为现状</button>
+        <span class="cap" id="copied" role="status"></span>
+      </div>
+      <p class="note">
+        换成浅色天空的话，状态栏的字要改成深色才看得清，暂停菜单和结算画面也要跟着调。
+        渐变和黄昏天空在游戏里需要按行换底色，比纯色多一点工作量，但能做到。
+      </p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var BW = 96, BH = 48, TS = 4, FLOOR = 40;   /* scene: 24 x 12 tiles, ground top at row 10 */
+  var GAP = { 14: true, 15: true };           /* a pit, to see the edges of the ground */
+
+  /* Things that do not change between options, as they are in the game now. */
+  var COL = {
+    G: "#c98a4b", d: "#7f4d22", g: "#a8692f",
+    b: "#b8693f", m: "#7a4a2e", o: "#4a3220", "?": "#e0b060", h: "#fff3b0",
+    S: "#b7bcc9", s: "#8a909e", t: "#5b606d",
+    "$": "#f5c842", "*": "#fff3b0", c: "#c9951f",
+    P: "#3f9a52", p: "#6fcf7f", q: "#2d7a3e", k: "#1d4a2a",
+    r: "#58a64b", R: "#3f7f3a"
+  };
+  var HERO = { R: "#d94a3d", S: "#f0b088", B: "#3a5fc8", O: "#6b7280", Q: "#f2f4f8" };
+  var HERO_ROWS = ["..RR..", "..SS..", ".RRRRS", ".SBBB.", "......", "..QO..", "..OO.."];
+  var ENT = { T: "#a0602e", W: "#f2f4f8", f: "#e6b07a" };
+  var GOOMBA = [[".TTT.", "TWTWT", "TTTTT", "ff.ff"], [".TTT.", "TWTWT", "TTTTT", ".f.f."]];
+  var COIN = [".$$.", "$*$c", "$$$c", ".cc."];
+  var BRICK = [["bbmb", "mmmm", "bmbb", "mmmm"], ["bmbb", "mmmm", "bbmb", "mmmm"]];
+  var QBLOCK = [["oooo", "o??o", "o??o", "oooo"], ["oooo", "ohho", "ohho", "oooo"]];
+  var STAIR = ["SSSS", "Ssst", "Ssst", "tttt"];
+  var PIPE_LIP = ["kkkkkkkk", "kpPPPPqk", "kpPPPPqk", "kkkkkkkk"];
+  var PIPE_BODY = [".kpPPqk.", ".kpPPqk.", ".kpPPqk.", ".kpPPqk."];
+
+  /* ---- pixel buffer ---- */
+  var buf = new Uint8ClampedArray(BW * BH * 4);
+  var rgbCache = {};
+  function rgb(h) {
+    var c = rgbCache[h];
+    if (!c) {
+      c = [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)];
+      rgbCache[h] = c;
+    }
+    return c;
+  }
+  function px(x, y, h) {
+    if (x < 0 || y < 0 || x >= BW || y >= BH) return;
+    var c = rgb(h), i = (y * BW + x) * 4;
+    buf[i] = c[0]; buf[i + 1] = c[1]; buf[i + 2] = c[2]; buf[i + 3] = 255;
+  }
+  function paint(rows, x, y, pal) {
+    for (var r = 0; r < rows.length; r++) {
+      for (var c = 0; c < rows[r].length; c++) {
+        var col = pal[rows[r].charAt(c)];
+        if (col) px(x + c, y + r, col);
+      }
+    }
+  }
+  function merged(pal) { var o = {}, k; for (k in COL) o[k] = COL[k]; for (k in pal || {}) o[k] = pal[k]; return o; }
+
+  /* ---- skies ---- */
+  function solid(c) { return function () { return c; }; }
+  function bands(list) {
+    return function (y) { return list[Math.min(list.length - 1, Math.floor(y * list.length / FLOOR))]; };
+  }
+  var STARS = [[5, 3], [17, 8], [29, 2], [41, 6], [53, 4], [66, 9], [77, 2], [88, 7], [11, 14], [47, 12], [70, 15], [35, 17], [59, 19], [83, 13]];
+
+  /* ---- clouds ---- */
+  var CLOUD_S = ["..WWW...", ".WWWWWW.", "WWWWWWWW", ".wwwwww."];
+  var CLOUD_L = ["....WWW.......", "..WWWWWWWWW...", ".WWWWWWWWWWWW.", "WWWWWWWWWWWWWW", ".wwwwwwwwwwww."];
+  var CLOUD_THIN = ["..WWWWWWWWWW....", "wwwwwwwwwwwwwwww"];
+  var CLOUD_PAL = { W: "#ffffff", w: "#cfdcef" };
+  function drift(x0, t, w) {
+    var span = BW + w, off = Math.floor(t / 3);
+    return ((x0 - off) % span + span) % span - w;
+  }
+
+  /* ---- backdrop ---- */
+  var HILL_L = ["....HHHHH....", "...HHHHHHH...", "..HHHjHHHHH..", ".HHHHHHHjHHH.", ".HHjHHHHHHHH.", "HHHHHHHHHHjHH", "HHHHHHHHHHHHH"];
+  var HILL_S = ["..HHHHH..", ".HHHjHHH.", "HHHHHHHjH", "HHHHHHHHH"];
+  var HILL_PAL = { H: "#4f9a4a", j: "#3a7a38" };
+  var BUSH = ["..uu..uu..", ".uuuuuuuu.", "uuUuuuuUuu"];
+  var BUSH_PAL = { u: "#6cc24a", U: "#4f9a3a" };
+  var TREE = [".ggg.", "ggggg", "gGggg", "ggggg", ".ggg.", "..t..", "..t.."];
+  var TREE_PAL = { g: "#3f8a4a", G: "#5aa860", t: "#6a4a2a" };
+  function mountain(cx, h, col) {
+    for (var dy = 0; dy < h; dy++) {
+      var half = h - dy;
+      for (var x = cx - half; x <= cx + half; x++) px(x, FLOOR - 1 - dy, col);
+    }
+  }
+  function hills() { paint(HILL_S, 0, FLOOR - HILL_S.length, HILL_PAL); paint(HILL_L, 24, FLOOR - HILL_L.length, HILL_PAL); }
+  function bushes() { paint(BUSH, 34, FLOOR - BUSH.length, BUSH_PAL); paint(BUSH, 66, FLOOR - BUSH.length, BUSH_PAL); }
+
+  var CATS = [
+    {
+      key: "sky", title: "天空",
+      sub: "整个画面面积最大的颜色，也是状态栏的底色。现在是近黑的夜色，横版游戏更常见的是白天的蓝天。",
+      opts: [
+        { name: "现状", ds: "近黑的深色，和终端底色融为一体。", color: solid("#12141a"), hud: ["#12141a", "#e4e7ee"] },
+        { name: "经典天蓝", ds: "饱和的中蓝，白天的感觉最强，白字照样清楚。", color: solid("#6b8ff0"), hud: ["#6b8ff0", "#ffffff"] },
+        { name: "浅天蓝", ds: "更淡更亮，画面干净，但状态栏要改用深色字。", color: solid("#9ccaf5"), hud: ["#9ccaf5", "#16202e"] },
+        { name: "渐变蓝天", ds: "上深下浅分六档，有纵深感。", color: bands(["#3f6fd6", "#4f80de", "#6292e6", "#78a6ee", "#90bcf4", "#aad2fa"]), hud: ["#3f6fd6", "#ffffff"] },
+        { name: "黄昏", ds: "上面紫蓝，靠近地面变成橙红。", color: bands(["#2c2f6b", "#4a3f86", "#7a4f8f", "#b5607e", "#e07f68", "#f2a86e"]), hud: ["#2c2f6b", "#ffffff"] },
+        { name: "星空", ds: "深蓝夜空，星星会一闪一闪。比现状亮一点，看得出是天。", color: solid("#141c3a"), hud: ["#141c3a", "#e4e7ee"],
+          after: function (t) {
+            STARS.forEach(function (s, i) { px(s[0], s[1], (Math.floor(t / 2) + i * 3) % 7 === 0 ? "#5a6694" : "#e8ecff"); });
+          } },
+        { name: "灰蓝阴天", ds: "低饱和的灰蓝，安静，不抢前景。", color: solid("#8fa3b8"), hud: ["#8fa3b8", "#16202e"] }
+      ]
+    },
+    {
+      key: "clouds", title: "云",
+      sub: "云只是装饰，不能踩。要的是让天空不那么空，又不能和问号块、金币抢眼。",
+      opts: [
+        { name: "无", ds: "现状，天上什么都没有。", draw: function () {} },
+        { name: "小白云", ds: "几朵小云，底下一行浅灰当阴影。", draw: function () {
+            paint(CLOUD_S, 12, 4, CLOUD_PAL); paint(CLOUD_S, 58, 9, CLOUD_PAL); paint(CLOUD_S, 86, 2, CLOUD_PAL); } },
+        { name: "大白云", ds: "一大一小，大的蓬松一些。", draw: function () {
+            paint(CLOUD_L, 30, 3, CLOUD_PAL); paint(CLOUD_S, 70, 7, CLOUD_PAL); } },
+        { name: "飘动白云", ds: "小白云慢慢往左飘，画面一直有点动静。", draw: function (t) {
+            paint(CLOUD_S, drift(12, t, 8), 4, CLOUD_PAL); paint(CLOUD_L, drift(50, t, 14), 8, CLOUD_PAL); paint(CLOUD_S, drift(86, t, 8), 2, CLOUD_PAL); } },
+        { name: "薄云带", ds: "细长的两行云，像高空的云，最低调。", draw: function () {
+            paint(CLOUD_THIN, 8, 5, CLOUD_PAL); paint(CLOUD_THIN, 54, 10, CLOUD_PAL); } }
+      ]
+    },
+    {
+      key: "backdrop", title: "远景",
+      sub: "画在地面后面、天空前面。只是背景，不挡路，所以颜色要比地面和角色淡或暗一档。",
+      opts: [
+        { name: "无", ds: "现状，地面后面直接是天空。", draw: function () {} },
+        { name: "绿色山丘", ds: "一大一小两座圆山丘，上面有深色斑点。", draw: hills },
+        { name: "山丘加草丛", ds: "山丘前面再加两丛矮草。", draw: function () { hills(); bushes(); } },
+        { name: "只有草丛", ds: "只在地面上加几丛草，最简单。", draw: bushes },
+        { name: "远山剪影", ds: "两层灰蓝的尖山，远的淡近的深。", draw: function () {
+            mountain(20, 16, "#9fb3d6"); mountain(62, 14, "#9fb3d6");
+            mountain(40, 10, "#7088b0"); mountain(84, 12, "#7088b0"); } },
+        { name: "树林", ds: "一排圆冠小树。", draw: function () {
+            [2, 18, 32, 48, 64, 80].forEach(function (x) { paint(TREE, x, FLOOR - TREE.length, TREE_PAL); }); } }
+      ]
+    },
+    {
+      key: "ground", title: "地面",
+      sub: "现在是暗土。横版游戏更常见的是一块块的砖石地面，每格都有亮边和暗边，看起来硬、能踩。下面一层地面和上面一层一样画，还是只有最上面不同，各个选项不一样。",
+      opts: [
+        { name: "现状（暗土）", ds: "上面一条亮边，下面全是暗土。",
+          top: [["GGGG", "dddd", "dddd", "dddd"]], below: [["dddd", "dddd", "dddd", "dddd"]] },
+        { name: "方块地砖", ds: "每格一块：左上亮、右下暗，上下两层一样。",
+          pal: { x: "#c8743a", l: "#efb07a", z: "#5e2c12" },
+          top: [["lllz", "lxxz", "lxxz", "zzzz"]], below: [["lllz", "lxxz", "lxxz", "zzzz"]] },
+        { name: "大方块地砖", ds: "两格乘两格拼成一块大砖，块上有一道裂纹，比小方块更像石块。",
+          pal: { x: "#c8743a", l: "#efb07a", z: "#5e2c12" },
+          big: ["lllllllz", "lxxxxxxz", "lxxxzxxz", "lxxzxxxz", "lxxxxxxz", "lxxxxxlz", "lxxxxxxz", "zzzzzzzz"] },
+        { name: "砖纹地面", ds: "像墙砖一样错缝，但用地面的颜色，和砖块墙分得开。",
+          pal: { x: "#c0703a", z: "#6a3418" },
+          top: [["xxxz", "zzzz", "xzxx", "zzzz"], ["xzxx", "zzzz", "xxxz", "zzzz"]],
+          below: [["xxxz", "zzzz", "xzxx", "zzzz"], ["xzxx", "zzzz", "xxxz", "zzzz"]] },
+        { name: "草皮土地", ds: "最上面一行草，下面是带碎石的土。",
+          top: [["rrRr", "gdgg", "gggg", "ggdg"], ["rRrr", "ggdg", "gggg", "gdgg"]],
+          below: [["gggg", "gdgg", "gggg", "ggdg"], ["ggdg", "gggg", "gdgg", "gggg"]] },
+        { name: "草皮加方块", ds: "方块地砖，最上面一层顶上换成草。",
+          pal: { x: "#c8743a", l: "#efb07a", z: "#5e2c12" },
+          top: [["rrrr", "lxxz", "lxxz", "zzzz"]], below: [["lllz", "lxxz", "lxxz", "zzzz"]] },
+        { name: "暗土加草皮", ds: "保留现在的暗土，只把亮边换成草。",
+          top: [["rrRr", "dddd", "dddd", "dddd"], ["rRrr", "dddd", "dddd", "dddd"]], below: [["dddd", "dddd", "dddd", "dddd"]] }
+      ]
+    }
+  ];
+  CATS.forEach(function (c) { c.opts.forEach(function (o) { o.palm = merged(o.pal); }); });
+
+  function groundTile(o, tx, ty) {
+    if (o.big) {
+      var ox = (tx % 2) * 4, oy = ((ty - 10) % 2) * 4;
+      return o.big.slice(oy, oy + 4).map(function (r) { return r.substr(ox, 4); });
+    }
+    if (ty === 10) return o.top[tx % o.top.length];
+    return o.below[(tx + ty) % o.below.length];
+  }
+
+  var state = { sel: {}, hover: null, t: 0, grid: false, paused: false };
+  CATS.forEach(function (c) { state.sel[c.key] = 0; });
+
+  function effective(override) {
+    var s = {};
+    CATS.forEach(function (c) { s[c.key] = state.sel[c.key]; });
+    if (state.hover) s[state.hover.key] = state.hover.i;
+    if (override) s[override.key] = override.i;
+    return s;
+  }
+
+  function render(sel, t) {
+    var sky = CATS[0].opts[sel.sky], cl = CATS[1].opts[sel.clouds],
+        bd = CATS[2].opts[sel.backdrop], gr = CATS[3].opts[sel.ground];
+    var x, y;
+    for (y = 0; y < BH; y++) { var col = sky.color(y, t); for (x = 0; x < BW; x++) px(x, y, col); }
+    if (sky.after) sky.after(t);
+    cl.draw(t);
+    bd.draw(t);
+
+    for (x = 0; x < BW / TS; x++) {
+      if (GAP[x]) continue;
+      for (y = 10; y < 12; y++) paint(groundTile(gr, x, y), x * TS, y * TS, gr.palm);
+    }
+    paint(PIPE_LIP, 18 * TS, 8 * TS, COL);
+    paint(PIPE_BODY, 18 * TS, 9 * TS, COL);
+    paint(QBLOCK[Math.floor(t / 4) % 2], 5 * TS, 6 * TS, COL);
+    paint(BRICK[0], 6 * TS, 6 * TS, COL);
+    paint(QBLOCK[Math.floor(t / 4) % 2], 7 * TS, 6 * TS, COL);
+    paint(BRICK[1], 8 * TS, 6 * TS, COL);
+    for (x = 21; x <= 23; x++) for (y = 9; y >= 9 - (x - 21); y--) paint(STAIR, x * TS, y * TS, COL);
+    paint(COIN, 14 * TS, 8 * TS, COL);
+    paint(COIN, 15 * TS, 8 * TS, COL);
+    paint(GOOMBA[Math.floor(t / 3) % 2], 11 * TS, FLOOR - 4, ENT);
+    paint(HERO_ROWS, 2 * TS + 1, FLOOR - HERO_ROWS.length, HERO);
+  }
+
+  var off = document.createElement("canvas");
+  off.width = BW; off.height = BH;
+  var offCtx = off.getContext("2d");
+
+  function drawTo(cv, sel, t, grid) {
+    render(sel, t);
+    offCtx.putImageData(new ImageData(buf, BW, BH), 0, 0);
+    var ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, cv.width, cv.height);
+    if (grid) {
+      var z = cv.width / BW;
+      ctx.strokeStyle = "rgba(0,0,0,0.18)"; ctx.lineWidth = 1; ctx.beginPath();
+      for (var gx = 0; gx <= BW; gx += TS) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, cv.height); }
+      for (var gy = 0; gy <= BH; gy += TS) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(cv.width, gy * z + 0.5); }
+      ctx.stroke();
+    }
+  }
+
+  var cards = [];
+  function buildCats() {
+    var host = document.getElementById("cats");
+    CATS.forEach(function (cat) {
+      var sec = document.createElement("section"); sec.className = "cat";
+      var h = document.createElement("h2"); h.textContent = cat.title; sec.appendChild(h);
+      var sub = document.createElement("p"); sub.className = "sub"; sub.textContent = cat.sub; sec.appendChild(sub);
+      var grid = document.createElement("div"); grid.className = "opts"; sec.appendChild(grid);
+
+      cat.opts.forEach(function (opt, i) {
+        var label = document.createElement("label"); label.className = "opt" + (i === 0 ? " on" : "");
+        var input = document.createElement("input");
+        input.type = "radio"; input.name = "cat-" + cat.key; input.value = String(i);
+        if (i === 0) input.checked = true;
+        var cv = document.createElement("canvas"); cv.width = BW * 3; cv.height = BH * 3;
+        var nm = document.createElement("span"); nm.className = "nm";
+        var letter = document.createElement("i"); letter.textContent = String.fromCharCode(65 + i);
+        nm.appendChild(letter); nm.appendChild(document.createTextNode(opt.name));
+        var ds = document.createElement("span"); ds.className = "ds"; ds.textContent = opt.ds;
+        label.appendChild(input); label.appendChild(cv); label.appendChild(nm); label.appendChild(ds);
+        grid.appendChild(label);
+
+        input.addEventListener("change", function () {
+          state.sel[cat.key] = i;
+          Array.prototype.forEach.call(grid.children, function (el, k) { el.classList.toggle("on", k === i); });
+          refresh();
+        });
+        function over() { state.hover = { key: cat.key, i: i }; refreshBig(); }
+        function out() { state.hover = null; refreshBig(); }
+        label.addEventListener("mouseenter", over);
+        label.addEventListener("mouseleave", out);
+        input.addEventListener("focus", over);
+        input.addEventListener("blur", out);
+        cards.push({ cv: cv, key: cat.key, i: i });
+      });
+      host.appendChild(sec);
+    });
+  }
+
+  var big, hud;
+  function refreshBig() {
+    var sel = effective();
+    drawTo(big, sel, state.t, state.grid);
+    var h = CATS[0].opts[sel.sky].hud;
+    hud.style.background = h[0]; hud.style.color = h[1];
+  }
+  function refreshCards() {
+    cards.forEach(function (c) {
+      var sel = {};
+      CATS.forEach(function (cat) { sel[cat.key] = state.sel[cat.key]; });
+      sel[c.key] = c.i;
+      drawTo(c.cv, sel, state.t, false);
+    });
+  }
+  function summaryText() {
+    var parts = [], code = [];
+    CATS.forEach(function (c) {
+      var i = state.sel[c.key];
+      parts.push(c.title + " " + String.fromCharCode(65 + i) + "「" + c.opts[i].name + "」");
+      code.push(c.key + "=" + String.fromCharCode(65 + i));
+    });
+    return parts.join(" · ") + "\n" + code.join(" ");
+  }
+  function refresh() {
+    refreshBig();
+    refreshCards();
+    document.getElementById("summary").textContent = summaryText();
+  }
+
+  function init() {
+    big = document.getElementById("big");
+    hud = document.getElementById("hud");
+    big.width = BW * 8; big.height = BH * 8;
+    buildCats();
+    refresh();
+
+    document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; refreshBig(); });
+    var pause = document.getElementById("pause");
+    pause.addEventListener("change", function (e) { state.paused = e.target.checked; });
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      pause.checked = true; state.paused = true;
+    }
+    document.getElementById("reset").addEventListener("click", function () {
+      CATS.forEach(function (c) { state.sel[c.key] = 0; });
+      Array.prototype.forEach.call(document.querySelectorAll(".opts"), function (grid) {
+        Array.prototype.forEach.call(grid.children, function (el, k) {
+          el.classList.toggle("on", k === 0);
+          el.querySelector("input").checked = (k === 0);
+        });
+      });
+      refresh();
+    });
+    var copied = document.getElementById("copied");
+    document.getElementById("copy").addEventListener("click", function () {
+      var text = summaryText();
+      var done = function (msg) { copied.textContent = msg; setTimeout(function () { copied.textContent = ""; }, 2400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done("已复制"); }, function () { done("复制失败，请手动选中上面的文字"); });
+      } else {
+        done("请手动选中上面的文字复制");
+      }
+    });
+    setInterval(function () {
+      if (state.paused) return;
+      state.t++;
+      refreshBig();
+      refreshCards();
+    }, 150);
+  }
+
+  window.__SKY__ = { CATS: CATS, render: render, groundTile: groundTile, buf: buf };
+  init();
+})();
+</script>
+</body>
+</html>

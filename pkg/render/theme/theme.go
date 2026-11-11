@@ -110,6 +110,12 @@ type Cast struct {
 
 	// CoinPlus is the green "+1" shown at the coin counter.
 	CoinPlus tcell.Color
+
+	// Cloud and CloudShade are the drifting clouds and their undersides.
+	Cloud, CloudShade tcell.Color
+
+	// Grass and GrassDark are the turf on top of the ground.
+	Grass, GrassDark tcell.Color
 }
 
 func hex(v int32) tcell.Color { return tcell.NewHexColor(v) }
@@ -178,6 +184,8 @@ var Ink = Tokens{
 		FlagPole: hex(0xb7bcc9), FlagBall: hex(0xf5c842), FlagBallShade: hex(0xc9951f),
 		FlagDark: hex(0x1a1a1a), FlagLight: hex(0xf2f4f8),
 		CoinPlus: hex(0x5fd35f),
+		Cloud:    hex(0xffffff), CloudShade: hex(0xcfdcef),
+		Grass: hex(0x58a64b), GrassDark: hex(0x3f7f3a),
 	},
 
 	Full: true,
@@ -243,6 +251,8 @@ var Paper = Tokens{
 		FlagPole: hex(0x8a909e), FlagBall: hex(0xd0a020), FlagBallShade: hex(0x9a7410),
 		FlagDark: hex(0x1c1d20), FlagLight: hex(0xd8dbe0),
 		CoinPlus: hex(0x2a9a3a),
+		Cloud:    hex(0xdfe5ee), CloudShade: hex(0xc4ccd8),
+		Grass: hex(0x4a9a40), GrassDark: hex(0x2f7030),
 	},
 
 	Full: true,
@@ -339,6 +349,10 @@ func Degrade(t Tokens, c Capacity) Tokens {
 	cs.FlagPole, cs.FlagBall, cs.FlagBallShade = tcell.ColorSilver, tcell.ColorWhite, tcell.ColorGray
 	cs.FlagDark, cs.FlagLight = tcell.ColorBlack, tcell.ColorWhite
 	cs.CoinPlus = tcell.ColorWhite
+	// Clouds are white with a silver underside, as in colour; grass is a step
+	// lighter than the dark soil under it.
+	cs.Cloud, cs.CloudShade = tcell.ColorWhite, tcell.ColorSilver
+	cs.Grass, cs.GrassDark = tcell.ColorSilver, tcell.ColorGray
 
 	t.Full = false
 	return t

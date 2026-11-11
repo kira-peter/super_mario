@@ -147,7 +147,7 @@ func newApp(s tcell.Screen, opts Options, lv *level.Level) (*App, error) {
 	a.world.Input = a.input
 	a.title = newTitleState(a)
 
-	a.scene = render.Scene{T: tok, Theme: opts.ThemeName}
+	a.scene = render.Scene{T: tok, Theme: opts.ThemeName, Sky: render.NewSky(time.Now().UnixNano())}
 	a.frameEvery = 60 / max(1, opts.FPS)
 	tw, th := 120, 40
 	if s != nil {
@@ -367,6 +367,8 @@ func (a *App) startRun() {
 	a.sm.ToTitle()
 	a.sm.StartRun()
 	a.clock.Reset()
+	// Every run gets its own clouds.
+	a.scene.Sky = render.NewSky(time.Now().UnixNano())
 }
 
 // handleEvent translates a terminal event into an input action.

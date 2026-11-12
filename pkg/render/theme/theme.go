@@ -114,6 +114,16 @@ type Cast struct {
 	// Cloud and CloudShade are the drifting clouds and their undersides.
 	Cloud, CloudShade tcell.Color
 
+	// The castle at the end of the level. Its windows are dark while the level
+	// is played and light up, one solid warm colour, once the pole is reached.
+	CastleWall, CastleWallDark, CastleStoneLight tcell.Color
+	CastleRoof, CastleRoofTile, CastleOutline    tcell.Color
+	CastleWindow, CastleWindowDark               tcell.Color
+	// CastleDoorOpen is the doorway once the pole is grabbed: the door has
+	// swung open and the inside is black.
+	CastleDoor, CastleDoorDark, CastleDoorOpen tcell.Color
+	CastleFlag, CastleFlagPole                 tcell.Color
+
 	// Grass and GrassDark are the turf on top of the ground.
 	Grass, GrassDark tcell.Color
 }
@@ -185,6 +195,11 @@ var Ink = Tokens{
 		FlagDark: hex(0x1a1a1a), FlagLight: hex(0xf2f4f8),
 		CoinPlus: hex(0x5fd35f),
 		Cloud:    hex(0xffffff), CloudShade: hex(0xcfdcef),
+		CastleWall: hex(0x9a9a9a), CastleWallDark: hex(0x5f5f5f), CastleStoneLight: hex(0xc4c4c4),
+		CastleRoof: hex(0xc4472c), CastleRoofTile: hex(0x8a2b1a), CastleOutline: hex(0x262626),
+		CastleWindow: hex(0xffc35a), CastleWindowDark: hex(0x1c1c1c),
+		CastleDoor: hex(0x7a4a22), CastleDoorDark: hex(0x4a2a12), CastleDoorOpen: hex(0x000000),
+		CastleFlag: hex(0xd43b2b), CastleFlagPole: hex(0x8a8a8a),
 		Grass: hex(0x58a64b), GrassDark: hex(0x3f7f3a),
 	},
 
@@ -252,6 +267,11 @@ var Paper = Tokens{
 		FlagDark: hex(0x1c1d20), FlagLight: hex(0xd8dbe0),
 		CoinPlus: hex(0x2a9a3a),
 		Cloud:    hex(0xdfe5ee), CloudShade: hex(0xc4ccd8),
+		CastleWall: hex(0x9a9ea6), CastleWallDark: hex(0x6a6f78), CastleStoneLight: hex(0xc4c8d0),
+		CastleRoof: hex(0xb03a24), CastleRoofTile: hex(0x7a2416), CastleOutline: hex(0x3a3c42),
+		CastleWindow: hex(0xe8a032), CastleWindowDark: hex(0x3a3c42),
+		CastleDoor: hex(0x6a4020), CastleDoorDark: hex(0x40240e), CastleDoorOpen: hex(0x000000),
+		CastleFlag: hex(0xc0322a), CastleFlagPole: hex(0x6a6f78),
 		Grass: hex(0x4a9a40), GrassDark: hex(0x2f7030),
 	},
 
@@ -352,6 +372,15 @@ func Degrade(t Tokens, c Capacity) Tokens {
 	// Clouds are white with a silver underside, as in colour; grass is a step
 	// lighter than the dark soil under it.
 	cs.Cloud, cs.CloudShade = tcell.ColorWhite, tcell.ColorSilver
+	// The castle keeps its shape in grey. The windows go to white, the brightest
+	// grey there is, so even without colour they read as lit.
+	cs.CastleWall, cs.CastleWallDark, cs.CastleStoneLight = tcell.ColorGray, tcell.ColorDarkGray, tcell.ColorSilver
+	cs.CastleRoof, cs.CastleRoofTile, cs.CastleOutline = tcell.ColorSilver, tcell.ColorGray, tcell.ColorBlack
+	cs.CastleWindow, cs.CastleWindowDark = tcell.ColorWhite, tcell.ColorBlack
+	// Closed, the door is a mid grey so it shows against the black outline;
+	// open, it is black.
+	cs.CastleDoor, cs.CastleDoorDark, cs.CastleDoorOpen = tcell.ColorGray, tcell.ColorDarkGray, tcell.ColorBlack
+	cs.CastleFlag, cs.CastleFlagPole = tcell.ColorWhite, tcell.ColorGray
 	cs.Grass, cs.GrassDark = tcell.ColorSilver, tcell.ColorGray
 
 	t.Full = false

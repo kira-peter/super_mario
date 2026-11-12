@@ -62,6 +62,7 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 
 	d.clouds(w)
 	d.terrain(w)
+	d.castle(w)
 	d.flag(w)
 	d.items(w)
 	d.enemies(w)
@@ -317,7 +318,7 @@ func (d drawer) flag(w *game.World) {
 	lv := w.Level
 	k := d.castScale()
 	poleX := lv.FlagX*d.px - d.camX + poleColumn*k
-	topY := (lv.FlagTop+1)*d.px - d.camY
+	topY := (lv.FlagTop+1)*d.px - d.camY + WorldToArtScaled(w.FlagDrop, d.px)
 	d.c.blitArt(cast4.Cloth, poleX-cast4.Cloth.width()*k, topY, k, false, flagPalette(d.s.T))
 }
 
@@ -334,6 +335,9 @@ const heroDesignPx = 4
 // the hands reach out past it without shifting where he is.
 func (d drawer) player(w *game.World) {
 	p := w.Player
+	if p.Hidden {
+		return
+	}
 
 	// Blinking: star form and the grace period after a hit.
 	if p.Form == game.FormStar && (w.StepCount()/3)%2 == 0 {

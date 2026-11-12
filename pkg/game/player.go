@@ -49,8 +49,10 @@ type Player struct {
 	// GrowFlash counts the frames of the grow/shrink flash.
 	GrowFlash int
 
-	// SlideDown is set during the flagpole sequence.
+	// SlideDown is set while he is on the pole.
 	SlideDown bool
+	// Hidden is set once he has walked into the castle: he is not drawn.
+	Hidden bool
 
 	// LastHit is the collision result of the most recent step, so the world
 	// can react to a ceiling hit without re-deriving it.
@@ -233,6 +235,10 @@ func (p *Player) update(lv *level.Level, in engine.Pressed) {
 		p.wheelDist += moved.Abs()
 	}
 }
+
+// advanceWheel turns the wheel by a distance travelled outside the normal
+// movement code, such as the walk to the castle.
+func (p *Player) advanceWheel(d engine.Fixed) { p.wheelDist += d.Abs() }
 
 // unitsPerSpritePixel is how many game units one pixel of the hero's drawing
 // stands for. The hero is drawn at four pixels to a tile and a tile is sixteen

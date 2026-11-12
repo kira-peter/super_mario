@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>参考图城堡</title>
+<style>
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --fg: #1c1d20; --muted: #65676d;
+  --border: #dedbd6; --accent: #c0392b;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font);
+  padding: 28px 16px 64px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 4px; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 80ch; }
+.layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1080px) { .layout { grid-template-columns: minmax(0, 1fr) 560px; } }
+.preview {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+@media (min-width: 1080px) { .preview { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; } }
+.preview h2 { margin: 0; }
+canvas { display: block; image-rendering: pixelated; border-radius: 3px; }
+canvas.fluid { width: 100%; height: auto; }
+.cap { color: var(--muted); font-size: 12.5px; }
+.summary, .ascii {
+  font-family: var(--mono); font-size: 12.5px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+  overflow-wrap: anywhere; user-select: all; white-space: pre-wrap;
+}
+.ascii { white-space: pre; overflow-x: auto; font-size: 11px; line-height: 1.2; overflow-wrap: normal; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+section.cat { margin-bottom: 30px; }
+section.cat .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; max-width: 74ch; }
+.opts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.opt {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px; cursor: pointer; min-width: 0;
+}
+.opt:hover { border-color: var(--muted); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.opt canvas { width: 100%; height: auto; }
+.opt .nm { font-size: 13.5px; font-weight: 600; }
+.opt .nm i { font-style: normal; color: var(--accent); margin-right: 6px; font-family: var(--mono); }
+.opt .ds { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>参考图城堡</h1>
+  <p class="lede">
+    按你给的图画的：三座红尖顶塔，中间最高；每座塔的尖顶下有一圈城垛；塔中段一圈城垛，主城墙上再一圈；灰石砖墙；
+    黑色拱窗；中间一扇带石框的木拱门。石桥和台阶都不画。屋顶的鳞片和石块的明暗在这么小的尺寸下只能简化成纹理。
+    五个变量可以分别选，每张卡片里只换那一项。
+  </p>
+
+  <div class="layout">
+    <div id="cats"></div>
+
+    <aside class="preview" aria-label="合成预览">
+      <h2>合成预览</h2>
+      <canvas id="big" class="fluid" width="1" height="1"></canvas>
+      <span class="cap">接近终端里的真实大小。左边是旗杆，小人站的地方就是门，通关时他走到这里消失。</span>
+      <div class="tools">
+        <label class="chk"><input type="checkbox" id="grid"> 格子线</label>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="tools">
+        <button id="copy">复制我的选择</button>
+        <button id="reset">恢复默认</button>
+        <span class="cap" id="copied" role="status"></span>
+      </div>
+      <details>
+        <summary class="cap">当前组合的字符画（可以直接改了发给我）</summary>
+        <pre class="ascii" id="ascii"></pre>
+      </details>
+      <p class="note">
+        字母：S 石墙、s 砖缝和阴影、L 亮石（檐口、门框）、R 屋顶、r 屋顶瓦纹、Y 亮着的窗户、O 木门、o 门缝、
+        K 轮廓、F 旗、P 旗杆、. 透明。窗户是纯色暖光，不描边。
+      </p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* Widths are given as tower bodies; each tower's battlement ring is one
+     pixel wider on both sides. Only the left edges are listed: the right half
+     is a mirror. */
+  var SIZES = [
+    { W: 40, sideL: 2, sideW: 8, lowL: 13, lowW: 14, upL: 15, upW: 10,
+      winW: 4, winH: 4, doorW: 6, doorH: 9, tw: 3, gw: 2 },
+    { W: 52, sideL: 2, sideW: 10, lowL: 17, lowW: 18, upL: 20, upW: 12,
+      winW: 4, winH: 5, doorW: 8, doorH: 11, tw: 3, gw: 2 }
+  ];
+
+  var CATS = [
+    {
+      key: "size", title: "尺寸",
+      sub: "城堡站在关卡末尾的地面上，地面以上只有 13 格高，所以最高只能到 13 格。",
+      opts: [
+        { name: "10 格宽", ds: "40 像素宽，10 格。和现在游戏里的城堡一样宽，高一截。" },
+        { name: "13 格宽", ds: "52 像素宽，13 格。更高、窗和门大一点，细节多一些。" }
+      ]
+    },
+    {
+      key: "outline", title: "轮廓",
+      sub: "原图每样东西都有深色描边。你之前说只给城垛描边，这里两种都给。",
+      opts: [
+        { name: "只描城垛", ds: "城垛的齿外面一圈描边，其他地方不描。", mode: "teeth" },
+        { name: "全部描边", ds: "整座城堡外面一圈都描边，最像原图。", mode: "all" }
+      ]
+    },
+    {
+      key: "wall", title: "墙面",
+      sub: "原图是一块块的灰石，有砖缝，每块石头左上亮。",
+      opts: [
+        { name: "砖纹", ds: "每 3 行一道横缝，竖缝上下错开。", pat: "brick" },
+        { name: "砖纹加高光", ds: "再给每块石头左上角一个亮点，最像原图。", pat: "lit" },
+        { name: "纯灰", ds: "不画砖纹，只留檐口和阴影线。", pat: "none" }
+      ]
+    },
+    {
+      key: "roof", title: "屋顶",
+      sub: "原图屋顶是一片片的瓦。",
+      opts: [
+        { name: "瓦纹", ds: "隔行错开的深红小点，像一片片瓦。", tile: true },
+        { name: "纯红", ds: "不画瓦纹，干净。", tile: false }
+      ]
+    },
+    {
+      key: "flag", title: "旗子",
+      sub: "原图三面旗都朝右，这会让城堡左右不对称。所以给三种：没有、对称、像原图。",
+      opts: [
+        { name: "对称", ds: "两边的旗朝外，中间一面横幅。保持左右对称。", kind: "sym" },
+        { name: "像原图", ds: "三面旗都朝右。只有旗子不对称，城堡本身仍对称。", kind: "right" },
+        { name: "没有旗", ds: "只留尖顶，完全对称。", kind: "none" }
+      ]
+    }
+  ];
+
+  /* The combination chosen: 10 wide, outlined all round, plain grey, tiled
+     roofs, flags as in the picture. */
+  var DEFAULT = { size: 0, outline: 1, wall: 2, roof: 0, flag: 1 };
+
+  var FLAG_H = 4;
+
+  /* The castle for a selection.
+
+     It narrows as it rises, as in the reference picture:
+       the wall: the full width, with battlements along its top;
+       three towers standing on it, apart, with sky between them: two side
+         towers, and a middle one wider than they are;
+       the middle tower steps in again for an upper storey;
+       a red roof on each side tower and on the upper middle storey.
+
+     Every tower has a ring of battlements and a light ledge under it. A
+     battlement ring is a pixel wider than its tower on each side.
+
+     Everything except the flags is drawn on the left half and mirrored, so the
+     castle itself is always symmetric. Bricks are counted from the middle
+     outwards for the same reason. The outline and the flags come after. */
+  function build(sel) {
+    var sz = SIZES[sel.size], mode = CATS[1].opts[sel.outline].mode,
+        pat = CATS[2].opts[sel.wall].pat, tile = CATS[3].opts[sel.roof].tile,
+        flag = CATS[4].opts[sel.flag].kind;
+    var W = sz.W, half = W / 2;
+
+    /* Rows, from the ground up. Each tier is: battlements, ledge, shadow,
+       then the storey with its window. */
+    var tier = function (storeyRows) { return 3 + storeyRows; };
+    var wallStorey = sz.doorH + 2;
+    var lowStorey = sz.winH + 3;
+    var upStorey = sz.winH + 3;
+    var sideStorey = lowStorey + 2;
+
+    var upRoofH = sz.upW / 2 + 1, sideRoofH = sz.sideW / 2 + 1;
+    var H = FLAG_H + upRoofH + tier(upStorey) + tier(lowStorey) + tier(wallStorey);
+    var yWall = H - tier(wallStorey);
+    var yLow = yWall - tier(lowStorey);
+    var yUp = yLow - tier(upStorey);
+    var ySide = yWall - tier(sideStorey);
+    /* Each roof ends on the row above its battlements, so the two never
+       overlap and the teeth stand clear against the sky. */
+    var yUpRoof = yUp - upRoofH;
+    var ySideRoof = ySide - sideRoofH;
+
+    var g = [];
+    for (var y0 = 0; y0 < H; y0++) g.push(new Array(W).fill("."));
+    var merlon = {}, bodies = [];
+    function put(x, y, c) { if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = c; }
+    function fill(x0, y0, x1, y1, c) { for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) put(x, y, c); }
+
+    /* A roof over x0..x1, apex at yTop, eave on row yTop + rows - 1. */
+    function roof(x0, x1, yTop, rows) {
+      var span = x1 - x0 + 1;
+      for (var i = 0; i < rows; i++) {
+        var w = Math.max(2, Math.round(span * (i + 1) / rows));
+        if (w % 2 !== span % 2) w++;
+        if (w > span) w = span;
+        var l = x0 + (span - w) / 2;
+        for (var x = l; x < l + w; x++) {
+          var c = "R";
+          if (tile && i % 2 === 1 && ((x - x0) + (i >> 1)) % 2 === 0) c = "r";
+          put(x, yTop + i, c);
+        }
+      }
+    }
+    /* A tier over x0..x1 (the tower body) with its battlement row at yBat:
+       battlements a pixel wider each side, a ledge, a shadow row, and the
+       storey down to yEnd. */
+    function tierAt(x0, x1, yBat, yEnd) {
+      var b0 = x0 - 1, b1 = x1 + 1;
+      for (var x = b0; x <= b1; x++) {
+        var k = Math.min(x - b0, b1 - x);
+        if (k % (sz.tw + sz.gw) < sz.tw) { put(x, yBat, "S"); merlon[yBat * W + x] = true; }
+      }
+      fill(b0, yBat + 1, b1, yBat + 1, "L");
+      fill(b0, yBat + 2, b1, yBat + 2, "s");
+      fill(x0, yBat + 3, x1, yEnd, "S");
+      bodies.push([x0, x1, yBat + 3, yEnd]);
+    }
+    /* An arched window centred on the tower x0..x1, lit from inside: one solid
+       warm colour with no frame, as if lamps were burning in the castle. */
+    function window(x0, x1, y) {
+      var l = Math.round((x0 + x1 + 1) / 2 - sz.winW / 2);
+      fill(l + 1, y, l + sz.winW - 2, y, "Y");
+      fill(l, y + 1, l + sz.winW - 1, y + sz.winH - 1, "Y");
+    }
+
+    var sideL = sz.sideL, sideR = sz.sideL + sz.sideW - 1;
+    var lowL = sz.lowL, lowR = W - 1 - sz.lowL;
+    var upL = sz.upL, upR = W - 1 - sz.upL;
+
+    /* Back to front: the upper middle storey, then the low middle tower in
+       front of it, the side towers, and the wall in front of all of them. */
+    roof(upL, upR, yUpRoof, upRoofH);
+    tierAt(upL, upR, yUp, yLow - 1);
+    window(upL, upR, yUp + 4);
+
+    tierAt(lowL, lowR, yLow, yWall - 1);
+    window(lowL, lowR, yLow + 4);
+
+    roof(sideL, sideR, ySideRoof, sideRoofH);
+    tierAt(sideL, sideR, ySide, yWall - 1);
+    window(sideL, sideR, ySide + 4);
+
+    tierAt(1, W - 2, yWall, H - 1);
+    window(sideL, sideR, yWall + 4);
+
+    /* Bricks, counted from the middle so the mirror lines them up. */
+    if (pat !== "none") bodies.forEach(function (rg) {
+      for (var y = rg[2]; y <= rg[3]; y++) for (var x = rg[0]; x <= rg[1]; x++) {
+        if (g[y][x] !== "S") continue;
+        var dy = y - rg[2], fromMid = half - 1 - x, offs = (Math.floor(dy / 3) % 2) * 3;
+        if (dy % 3 === 2 || (fromMid + offs) % 6 === 5) g[y][x] = "s";
+        else if (pat === "lit" && dy % 3 === 0 && (fromMid + offs) % 6 === 4) g[y][x] = "L";
+      }
+    });
+
+    /* Door: wood, arched, in a light stone frame, on the ground. */
+    var dL = half - sz.doorW / 2, dTop = H - sz.doorH;
+    fill(dL - 1, dTop - 1, half - 1, H - 1, "L");
+    put(dL - 1, dTop - 1, "S");
+    fill(dL + 1, dTop, half - 1, dTop, "O");
+    fill(dL, dTop + 1, half - 1, H - 1, "O");
+    fill(half - 1, dTop + 2, half - 1, H - 1, "o");
+
+    /* Mirror the left half onto the right. */
+    for (var yy = 0; yy < H; yy++) for (var xx = 0; xx < half; xx++) g[yy][W - 1 - xx] = g[yy][xx];
+    Object.keys(merlon).forEach(function (key) {
+      var k = +key, my = Math.floor(k / W), mx = k % W;
+      merlon[my * W + (W - 1 - mx)] = true;
+    });
+
+    /* Outline: around the battlements only, or around the whole castle. */
+    var edge = [];
+    for (var ey = 0; ey < H; ey++) for (var ex = 0; ex < W; ex++) {
+      if (g[ey][ex] !== ".") continue;
+      var hit = false;
+      for (var oy = -1; oy <= 1 && !hit; oy++) for (var ox = -1; ox <= 1; ox++) {
+        if (mode === "all" && ox !== 0 && oy !== 0) continue;
+        var nx = ex + ox, ny = ey + oy;
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+        if (mode === "teeth" ? merlon[ny * W + nx] : g[ny][nx] !== ".") { hit = true; break; }
+      }
+      if (hit) edge.push([ex, ey]);
+    }
+    edge.forEach(function (p) { g[p[1]][p[0]] = "K"; });
+
+    /* Flags, after the mirror. Each pole stands on a roof apex. */
+    function pole(x, yApex) { fill(x, yApex - FLAG_H, x, yApex - 1, "P"); }
+    function pennant(x, yTop, dir) {
+      put(x + dir, yTop, "F"); put(x + 2 * dir, yTop, "F"); put(x + 3 * dir, yTop, "F");
+      put(x + dir, yTop + 1, "F"); put(x + 2 * dir, yTop + 1, "F");
+    }
+    if (flag !== "none") {
+      var sApex = sideL + sz.sideW / 2 - 1, sApexR = W - 1 - sApex;
+      var ySF = ySideRoof - FLAG_H;
+      if (flag === "sym") {
+        pole(sApex, ySideRoof); pennant(sApex, ySF, -1);
+        pole(sApexR, ySideRoof); pennant(sApexR, ySF, 1);
+        pole(half - 1, yUpRoof); pole(half, yUpRoof);
+        fill(half - 4, yUpRoof - FLAG_H, half + 3, yUpRoof - FLAG_H + 1, "F");
+        fill(half - 1, yUpRoof - FLAG_H, half, yUpRoof - FLAG_H + 1, "P");
+      } else {
+        pole(sApex, ySideRoof); pennant(sApex, ySF, 1);
+        pole(sApexR, ySideRoof); pennant(sApexR, ySF, 1);
+        pole(half, yUpRoof); pennant(half, yUpRoof - FLAG_H, 1);
+      }
+    }
+
+    return g.map(function (row) { return row.join(""); });
+  }
+
+  /* ---- scene ---- */
+  var COL = {
+    S: "#9a9a9a", s: "#5f5f5f", L: "#c4c4c4", K: "#262626",
+    R: "#c4472c", r: "#8a2b1a", D: "#141414", O: "#7a4a22", o: "#4a2a12",
+    Y: "#ffc35a",
+    F: "#d43b2b", P: "#3a3a3a",
+    pole: "#b7bcc9", ball: "#f5c842", X: "#1a1a1a", w: "#f2f4f8",
+    gr: "#58a64b", GR: "#3f7f3a", so: "#7f4d22"
+  };
+  var HERO = { R: "#d94a3d", S: "#f0b088", B: "#3a5fc8", O: "#6b7280", Q: "#f2f4f8" };
+  var HERO_ROWS = ["..RR..", "..SS..", ".RRRRS", ".SBBB.", "......", "..QO..", "..OO.."];
+  var SKY = "#12141a", SW = 112, SH = 72, FLOOR = 64, POLE_X = 17;
+  var buf = new Uint8ClampedArray(SW * SH * 4);
+  function px(x, y, h) {
+    if (x < 0 || y < 0 || x >= SW || y >= SH) return;
+    var i = (y * SW + x) * 4;
+    buf[i] = parseInt(h.substr(1, 2), 16); buf[i + 1] = parseInt(h.substr(3, 2), 16);
+    buf[i + 2] = parseInt(h.substr(5, 2), 16); buf[i + 3] = 255;
+  }
+  function paint(rows, x, y, pal) {
+    for (var r = 0; r < rows.length; r++)
+      for (var c = 0; c < rows[r].length; c++) {
+        var col = (pal || COL)[rows[r].charAt(c)];
+        if (col) px(x + c, y + r, col);
+      }
+  }
+  function render(sel) {
+    var x, y;
+    for (y = 0; y < SH; y++) for (x = 0; x < SW; x++) px(x, y, SKY);
+    for (x = 0; x < SW; x++) {
+      px(x, FLOOR, x % 4 === 2 ? COL.GR : COL.gr);
+      for (y = FLOOR + 1; y < SH; y++) px(x, y, COL.so);
+    }
+    /* the flagpole, eleven tiles tall, with the flag down at its foot */
+    px(POLE_X, FLOOR - 46, COL.ball); px(POLE_X - 1, FLOOR - 45, COL.ball);
+    px(POLE_X, FLOOR - 45, COL.ball); px(POLE_X + 1, FLOOR - 45, COL.ball);
+    for (y = FLOOR - 44; y < FLOOR; y++) px(POLE_X, y, COL.pole);
+    paint(["wXwXw", "XwXwX", "wXwXw"], POLE_X - 5, FLOOR - 12);
+    /* the castle, its door seven tiles past the pole */
+    var castle = build(sel), W = castle[0].length;
+    var doorX = POLE_X + 1 + 7 * 4;
+    paint(castle, doorX - W / 2, FLOOR - castle.length);
+    paint(HERO_ROWS, doorX - 3, FLOOR - HERO_ROWS.length, HERO);
+  }
+
+  var off = document.createElement("canvas");
+  off.width = SW; off.height = SH;
+  var offCtx = off.getContext("2d");
+  function drawTo(cv, sel, grid) {
+    render(sel);
+    offCtx.putImageData(new ImageData(buf, SW, SH), 0, 0);
+    var ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, cv.width, cv.height);
+    if (grid) {
+      var z = cv.width / SW;
+      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath();
+      for (var gx = 0; gx <= SW; gx += 4) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, cv.height); }
+      for (var gy = 0; gy <= SH; gy += 4) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(cv.width, gy * z + 0.5); }
+      ctx.stroke();
+    }
+  }
+
+  var state = { sel: {}, hover: null, grid: false };
+  CATS.forEach(function (c) { state.sel[c.key] = DEFAULT[c.key]; });
+  function effective() {
+    var s = {};
+    CATS.forEach(function (c) { s[c.key] = state.sel[c.key]; });
+    if (state.hover) s[state.hover.key] = state.hover.i;
+    return s;
+  }
+
+  var cards = [];
+  function buildCats() {
+    var host = document.getElementById("cats");
+    CATS.forEach(function (cat) {
+      var sec = document.createElement("section"); sec.className = "cat";
+      var h = document.createElement("h2"); h.textContent = cat.title; sec.appendChild(h);
+      var sub = document.createElement("p"); sub.className = "sub"; sub.textContent = cat.sub; sec.appendChild(sub);
+      var grid = document.createElement("div"); grid.className = "opts"; sec.appendChild(grid);
+      cat.opts.forEach(function (opt, i) {
+        var on = i === DEFAULT[cat.key];
+        var label = document.createElement("label"); label.className = "opt" + (on ? " on" : "");
+        var input = document.createElement("input");
+        input.type = "radio"; input.name = "cat-" + cat.key; input.value = String(i);
+        if (on) input.checked = true;
+        var cv = document.createElement("canvas"); cv.width = SW * 3; cv.height = SH * 3;
+        var nm = document.createElement("span"); nm.className = "nm";
+        var letter = document.createElement("i"); letter.textContent = String.fromCharCode(65 + i);
+        nm.appendChild(letter); nm.appendChild(document.createTextNode(opt.name));
+        var ds = document.createElement("span"); ds.className = "ds"; ds.textContent = opt.ds;
+        label.appendChild(input); label.appendChild(cv); label.appendChild(nm); label.appendChild(ds);
+        grid.appendChild(label);
+        input.addEventListener("change", function () {
+          state.sel[cat.key] = i;
+          Array.prototype.forEach.call(grid.children, function (el, k) { el.classList.toggle("on", k === i); });
+          refresh();
+        });
+        function over() { state.hover = { key: cat.key, i: i }; refreshBig(); }
+        function out() { state.hover = null; refreshBig(); }
+        label.addEventListener("mouseenter", over);
+        label.addEventListener("mouseleave", out);
+        input.addEventListener("focus", over);
+        input.addEventListener("blur", out);
+        cards.push({ cv: cv, key: cat.key, i: i });
+      });
+      host.appendChild(sec);
+    });
+  }
+
+  var big;
+  function refreshBig() {
+    var sel = effective();
+    drawTo(big, sel, state.grid);
+    document.getElementById("ascii").textContent = build(sel).join("\n");
+  }
+  function refreshCards() {
+    cards.forEach(function (c) {
+      var sel = {};
+      CATS.forEach(function (cat) { sel[cat.key] = state.sel[cat.key]; });
+      sel[c.key] = c.i;
+      drawTo(c.cv, sel, false);
+    });
+  }
+  function summaryText() {
+    var parts = [], code = [];
+    CATS.forEach(function (c) {
+      var i = state.sel[c.key];
+      parts.push(c.title + " " + String.fromCharCode(65 + i) + "「" + c.opts[i].name + "」");
+      code.push(c.key + "=" + String.fromCharCode(65 + i));
+    });
+    return parts.join(" · ") + "\n" + code.join(" ");
+  }
+  function refresh() {
+    refreshBig();
+    refreshCards();
+    document.getElementById("summary").textContent = summaryText();
+  }
+
+  function init() {
+    big = document.getElementById("big");
+    big.width = SW * 6; big.height = SH * 6;
+    buildCats();
+    refresh();
+    document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; refreshBig(); });
+    document.getElementById("reset").addEventListener("click", function () {
+      CATS.forEach(function (c) { state.sel[c.key] = DEFAULT[c.key]; });
+      Array.prototype.forEach.call(document.querySelectorAll(".opts"), function (grid, ci) {
+        var want = DEFAULT[CATS[ci].key];
+        Array.prototype.forEach.call(grid.children, function (el, k) {
+          el.classList.toggle("on", k === want);
+          el.querySelector("input").checked = (k === want);
+        });
+      });
+      refresh();
+    });
+    var copied = document.getElementById("copied");
+    document.getElementById("copy").addEventListener("click", function () {
+      var text = summaryText();
+      var done = function (msg) { copied.textContent = msg; setTimeout(function () { copied.textContent = ""; }, 2400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done("已复制"); }, function () { done("复制失败，请手动选中上面的文字"); });
+      } else { done("请手动选中上面的文字复制"); }
+    });
+  }
+
+  window.__CASTLEI__ = { CATS: CATS, SIZES: SIZES, build: build, COL: COL, DEFAULT: DEFAULT };
+  init();
+})();
+</script>
+</body>
+</html>

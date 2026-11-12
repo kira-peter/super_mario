@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>城堡细节选择</title>
+<style>
+:root {
+  --bg: #f6f5f3; --surface: #ffffff; --fg: #1c1d20; --muted: #65676d;
+  --border: #dedbd6; --accent: #c0392b;
+  --font: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8e6e3; --muted: #9a9ca3;
+    --border: #2a2e36; --accent: #e05a4a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font);
+  padding: 28px 16px 64px;
+}
+.wrap { max-width: 1320px; margin: 0 auto; }
+h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 0 0 4px; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 78ch; }
+.layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1080px) { .layout { grid-template-columns: minmax(0, 1fr) 560px; } }
+.preview {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+@media (min-width: 1080px) { .preview { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; } }
+.preview h2 { margin: 0; }
+canvas { display: block; image-rendering: pixelated; border-radius: 3px; }
+canvas.fluid { width: 100%; height: auto; }
+.cap { color: var(--muted); font-size: 12.5px; }
+.summary, .ascii {
+  font-family: var(--mono); font-size: 12.5px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+  overflow-wrap: anywhere; user-select: all; white-space: pre-wrap;
+}
+.ascii { white-space: pre; overflow-x: auto; font-size: 11.5px; line-height: 1.25; overflow-wrap: normal; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+button {
+  font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent; color: var(--fg); cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
+section.cat { margin-bottom: 30px; }
+section.cat .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 12px; max-width: 74ch; }
+.opts { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.opt {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px; cursor: pointer; min-width: 0;
+}
+.opt:hover { border-color: var(--muted); }
+.opt input { position: absolute; opacity: 0; pointer-events: none; }
+.opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.opt canvas { width: 100%; height: auto; }
+.opt .nm { font-size: 13.5px; font-weight: 600; }
+.opt .nm i { font-style: normal; color: var(--accent); margin-right: 6px; font-family: var(--mono); }
+.opt .ds { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>城堡细节选择</h1>
+  <p class="lede">
+    这一版只给城垛的齿描边：齿外面一圈（齿顶上方和两侧的缺口里）是深色轮廓，让齿在夜空里看得清；
+    墙、屋顶、门都不描边，空出来的像素都用来画城堡本身。页面打开时已经选好了你上次的组合（塔顶 D、城垛 A、门 E、墙面 A），可以在这个基础上重新选。
+    每张卡片里只换那一项，其余用你当前的选择。所有组合都是先画左半边、再镜像到右边，所以一定左右对称。
+  </p>
+
+  <div class="layout">
+    <div id="cats"></div>
+
+    <aside class="preview" aria-label="合成预览">
+      <h2>合成预览</h2>
+      <canvas id="big" class="fluid" width="1" height="1"></canvas>
+      <span class="cap">接近终端里的真实大小。小人站的地方就是门，通关时他走到这里消失。</span>
+      <div class="tools">
+        <label class="chk"><input type="checkbox" id="grid"> 格子线</label>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div class="tools">
+        <button id="copy">复制我的选择</button>
+        <button id="reset">恢复为上次的选择</button>
+        <span class="cap" id="copied" role="status"></span>
+      </div>
+      <details>
+        <summary class="cap">当前组合的字符画（可以直接改了发给我）</summary>
+        <pre class="ascii" id="ascii"></pre>
+      </details>
+      <p class="note">
+        字母含义：B 砖墙、b 深色砖缝、R 红屋顶、D 门和窗、K 城垛轮廓、. 透明（天空）。
+      </p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var W = 40, H = 30;
+  /* BODY is the first row of the long wall's body; its battlements stand on
+     top of it. MID is the first row of the middle tower's body. */
+  var BODY = 16, MID = 8;
+
+  var CATS = [
+    {
+      key: "top", title: "塔顶",
+      sub: "三座塔的顶端：尖顶，或者城垛（一排凸起的方齿）。城垛的齿宽跟着下面「城垛」的选择走。",
+      opts: [
+        { name: "全部尖顶", ds: "三座塔都是红色尖顶。", mid: "roof", side: "roof" },
+        { name: "全部城垛", ds: "三座塔顶都换成城垛，没有屋顶，更像要塞。", mid: "crown", side: "crown" },
+        { name: "中间尖顶、两边城垛", ds: "中间保留尖顶最高，两边变成带城垛的小塔楼。", mid: "roof", side: "crown" },
+        { name: "中间城垛、两边尖顶", ds: "中间塔顶是城垛，两边保留尖顶。", mid: "crown", side: "roof" }
+      ]
+    },
+    {
+      key: "bat", title: "城垛（锯齿）",
+      sub: "城墙顶上和塔顶上那一排齿。没有轮廓后，齿之间是缺口，能看到天空。齿越宽越像大块的石头垛口。",
+      opts: [
+        { name: "齿 2 缝 2", ds: "一行，细密。", m: 2, g: 2, rows: 1 },
+        { name: "齿 4 缝 2", ds: "一行，齿宽一倍，缝不变。", m: 4, g: 2, rows: 1 },
+        { name: "齿 4 缝 4", ds: "一行，齿和缝一样宽，规整。", m: 4, g: 4, rows: 1 },
+        { name: "齿 6 缝 2", ds: "一行，大齿窄缝，最厚重。", m: 6, g: 2, rows: 1 },
+        { name: "齿 4 缝 2，两行高", ds: "齿加高到两行，从远处更看得出是城垛。", m: 4, g: 2, rows: 2 },
+        { name: "齿 6 缝 4，两行高", ds: "大齿宽缝、两行高，最显眼。", m: 6, g: 4, rows: 2 }
+      ]
+    },
+    {
+      key: "door", title: "门",
+      sub: "小人只有 6 像素宽、7 像素高。拱门是把门顶两个角补成墙。",
+      opts: [
+        { name: "宽 6 高 10", ds: "方门，最大。", w: 6, h: 10, arch: false },
+        { name: "宽 6 高 8", ds: "宽度不变，矮两行。", w: 6, h: 8, arch: false },
+        { name: "宽 4 高 8", ds: "窄门，比小人略宽。", w: 4, h: 8, arch: false },
+        { name: "宽 4 高 6", ds: "最小，刚好能进人。", w: 4, h: 6, arch: false },
+        { name: "拱门 宽 6 高 9", ds: "门顶两个角是墙，像拱门。", w: 6, h: 9, arch: true },
+        { name: "拱门 宽 4 高 7", ds: "小拱门。", w: 4, h: 7, arch: true }
+      ]
+    },
+    {
+      key: "wall", title: "墙面花纹",
+      sub: "花纹用深一档的砖色画，只画在墙上，不碰门窗。没有轮廓后，花纹也是分出墙面层次的主要手段。",
+      opts: [
+        { name: "纯色", ds: "没有花纹。", pat: "none" },
+        { name: "错缝砖纹", ds: "每 3 行一道横缝，竖缝上下错开，像砌的砖。", pat: "brick" },
+        { name: "大石块", ds: "每 4 行一道横缝，石块 8 宽，错缝。", pat: "block" },
+        { name: "横条纹", ds: "只有横缝，没有竖缝，最简洁。", pat: "stripe" },
+        { name: "底部勒脚", ds: "墙底 3 行压暗，城堡显得稳。", pat: "plinth" },
+        { name: "砖纹加勒脚", ds: "错缝砖纹，再加底部压暗。", pat: "brickplinth" }
+      ]
+    }
+  ];
+
+  /* The combination chosen last time: top D, battlements A, door E, wall A. */
+  var LAST = { top: 3, bat: 0, door: 4, wall: 0 };
+
+  /* Builds the castle for a selection, with no outline anywhere. Everything is
+     drawn, then the left half is mirrored onto the right, which is what
+     guarantees symmetry. */
+  function build(sel) {
+    var top = CATS[0].opts[sel.top], bat = CATS[1].opts[sel.bat],
+        door = CATS[2].opts[sel.door], wall = CATS[3].opts[sel.wall];
+    var g = [];
+    for (var y0 = 0; y0 < H; y0++) g.push(new Array(W).fill("."));
+    /* toothAt marks the pixels that are battlement teeth, so they alone can be
+       outlined at the end. */
+    var toothAt = {};
+    function put(x, y, c) { if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = c; }
+    function fill(x0, y0, x1, y1, c) { for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) put(x, y, c); }
+    function toothPx(x, y0, y1) {
+      for (var y = y0; y <= y1; y++) { put(x, y, "B"); toothAt[y * W + x] = true; }
+    }
+
+    /* Whether column x of a span x0..x1 is a tooth. The pattern is laid out
+       from the middle of the span outwards, so it is symmetric about the span's
+       own centre. */
+    function tooth(x, x0, x1) {
+      var c = (x0 + x1) / 2;
+      var d = (x1 - x0 + 1) % 2 === 0 ? Math.abs(x - c) - 0.5 : Math.abs(x - c);
+      var half = bat.m / 2;
+      if (d < half) return true;
+      return ((d - half) % (bat.m + bat.g)) >= bat.g;
+    }
+    /* Battlements standing on row yTop: teeth of wall, gaps of sky. The two
+       ends are always teeth two pixels wide, so corners stand up as posts.
+       Between the posts the pattern starts with a gap, so even a narrow tower
+       shows at least one. */
+    function teeth(x0, x1, yTop) {
+      var inner0 = x0 + 2, inner1 = x1 - 2;
+      for (var x = x0; x <= x1; x++) {
+        var t;
+        if (x < inner0 || x > inner1) t = true;
+        else {
+          /* mirrored about the span's centre, starting with a gap at each post */
+          var k = Math.min(x - inner0, inner1 - x);
+          t = k % (bat.m + bat.g) >= bat.g;
+        }
+        if (t) toothPx(x, yTop - bat.rows, yTop - 1);
+      }
+    }
+
+    /* The long wall. Its battlements are on the open stretch between a side
+       tower and the middle one (x 8..13 on the left, mirrored), laid out from
+       the side tower: a gap first, then a tooth, and so on, so every width
+       shows both. */
+    fill(0, BODY, W - 1, H - 1, "B");
+    for (var sx = 8, k = 0; sx <= 13; sx++, k++) {
+      if (k % (bat.m + bat.g) >= bat.g) toothPx(sx, BODY - bat.rows, BODY - 1);
+    }
+
+    /* The middle tower, rising out of the wall: x 14..25. */
+    fill(14, MID, 25, BODY - 1, "B");
+    if (top.mid === "roof") {
+      /* A roof two pixels wide at the apex, fourteen at the eave, one pixel
+         wider than the tower on each side. */
+      for (var i = 0; i < MID; i++) fill(19 - i, i, 20 + i, i, "R");
+    } else {
+      teeth(14, 25, MID);
+    }
+    fill(16, 10, 17, 13, "D");
+    fill(22, 10, 23, 13, "D");
+
+    /* The side towers (the left one; the mirror makes the right): x 0..7. */
+    if (top.side === "roof") {
+      /* A roof as wide as the tower, two pixels across at the top. */
+      var halves = [0, 0, 1, 1, 2, 2, 3, 3];
+      for (var r = 0; r < halves.length; r++) fill(3 - halves[r], 7 + r, 4 + halves[r], 7 + r, "R");
+      fill(0, 15, 7, BODY - 1, "B");
+    } else {
+      fill(0, 11, 7, BODY - 1, "B");
+      teeth(0, 7, 11);
+      fill(3, 12, 4, 14, "D");
+    }
+    fill(3, 19, 4, 22, "D");
+
+    /* The door, centred and on the ground. An arch rounds off its top: the
+       top row is two pixels narrower than the rest, inside the same height. */
+    var dx0 = 20 - door.w / 2, dx1 = 19 + door.w / 2, dy0 = H - door.h;
+    fill(dx0, dy0, dx1, H - 1, "D");
+    if (door.arch) { put(dx0, dy0, "B"); put(dx1, dy0, "B"); }
+
+    /* Wall texture, only on plain wall pixels. */
+    function marked(x, y, y0) {
+      var dy = y - y0;
+      var brick = dy % 3 === 2 || (x + (Math.floor(dy / 3) % 2 ? 3 : 0)) % 6 === 5;
+      switch (wall.pat) {
+        case "brick": return brick;
+        case "block": return dy % 4 === 3 || (x + (Math.floor(dy / 4) % 2 ? 4 : 0)) % 8 === 7;
+        case "stripe": return dy % 3 === 2;
+        case "plinth": return y >= H - 3;
+        case "brickplinth": return y >= H - 3 || brick;
+      }
+      return false;
+    }
+    function texture(x0, x1, y0, y1) {
+      for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++)
+        if (g[y][x] === "B" && marked(x, y, y0)) g[y][x] = "b";
+    }
+    texture(0, W - 1, BODY, H - 1);
+    texture(14, 25, MID, BODY - 1);
+    if (top.side === "crown") texture(0, 7, 11, BODY - 1);
+
+    /* Outline the battlements, and only them: every sky pixel touching a tooth
+       (beside it, above it or at a corner) becomes outline. The teeth keep
+       their full size; the outline sits in the sky around them, which is what
+       makes them stand out against a dark sky. */
+    var edge = [];
+    for (var ey = 0; ey < H; ey++) for (var ex = 0; ex < W; ex++) {
+      if (g[ey][ex] !== ".") continue;
+      var near = false;
+      for (var oy = -1; oy <= 1 && !near; oy++) for (var ox = -1; ox <= 1; ox++) {
+        var nx = ex + ox, ny = ey + oy;
+        if (nx >= 0 && nx < W && ny >= 0 && ny < H && toothAt[ny * W + nx]) { near = true; break; }
+      }
+      if (near) edge.push([ex, ey]);
+    }
+    edge.forEach(function (p) { g[p[1]][p[0]] = "K"; });
+
+    /* Mirror the left half onto the right. */
+    for (var yy = 0; yy < H; yy++) for (var xx = 0; xx < W / 2; xx++) g[yy][W - 1 - xx] = g[yy][xx];
+    return g.map(function (row) { return row.join(""); });
+  }
+
+  /* ---- scene ---- */
+  var COL = {
+    K: "#4a3220", B: "#b8693f", b: "#8e4a2a", R: "#c0392b", D: "#1a120c",
+    P: "#b7bcc9", N: "#f5c842", n: "#c9951f", X: "#1a1a1a", w: "#f2f4f8",
+    gr: "#58a64b", GR: "#3f7f3a", so: "#7f4d22"
+  };
+  var HERO = { R: "#d94a3d", S: "#f0b088", B: "#3a5fc8", O: "#6b7280", Q: "#f2f4f8" };
+  var HERO_ROWS = ["..RR..", "..SS..", ".RRRRS", ".SBBB.", "......", "..QO..", "..OO.."];
+  var SKY = "#12141a", SW = 96, SH = 48, FLOOR = 40;
+  var buf = new Uint8ClampedArray(SW * SH * 4);
+  function px(x, y, h) {
+    if (x < 0 || y < 0 || x >= SW || y >= SH) return;
+    var i = (y * SW + x) * 4;
+    buf[i] = parseInt(h.substr(1, 2), 16); buf[i + 1] = parseInt(h.substr(3, 2), 16);
+    buf[i + 2] = parseInt(h.substr(5, 2), 16); buf[i + 3] = 255;
+  }
+  function paint(rows, x, y, pal) {
+    for (var r = 0; r < rows.length; r++)
+      for (var c = 0; c < rows[r].length; c++) {
+        var col = (pal || COL)[rows[r].charAt(c)];
+        if (col) px(x + c, y + r, col);
+      }
+  }
+  function render(sel) {
+    var x, y;
+    for (y = 0; y < SH; y++) for (x = 0; x < SW; x++) px(x, y, SKY);
+    for (x = 0; x < SW; x++) {
+      px(x, FLOOR, x % 4 === 2 ? COL.GR : COL.gr);
+      for (y = FLOOR + 1; y < SH; y++) px(x, y, COL.so);
+    }
+    /* pole at tile 8, its shaft in column 33; the flag is down at its foot */
+    paint(["....", "....", ".N..", "NNn."], 32, 4);
+    for (y = 8; y < FLOOR; y++) px(33, y, COL.P);
+    paint(["wXwXw", "XwXwX", "wXwXw"], 28, FLOOR - 12);
+    /* castle: door seven tiles past the pole, at x = 60 */
+    paint(build(sel), 40, FLOOR - H);
+    paint(HERO_ROWS, 57, FLOOR - HERO_ROWS.length, HERO);
+  }
+
+  var off = document.createElement("canvas");
+  off.width = SW; off.height = SH;
+  var offCtx = off.getContext("2d");
+  function drawTo(cv, sel, grid) {
+    render(sel);
+    offCtx.putImageData(new ImageData(buf, SW, SH), 0, 0);
+    var ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, cv.width, cv.height);
+    if (grid) {
+      var z = cv.width / SW;
+      ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath();
+      for (var gx = 0; gx <= SW; gx += 4) { ctx.moveTo(gx * z + 0.5, 0); ctx.lineTo(gx * z + 0.5, cv.height); }
+      for (var gy = 0; gy <= SH; gy += 4) { ctx.moveTo(0, gy * z + 0.5); ctx.lineTo(cv.width, gy * z + 0.5); }
+      ctx.stroke();
+    }
+  }
+
+  var state = { sel: {}, hover: null, grid: false };
+  CATS.forEach(function (c) { state.sel[c.key] = LAST[c.key]; });
+  function effective() {
+    var s = {};
+    CATS.forEach(function (c) { s[c.key] = state.sel[c.key]; });
+    if (state.hover) s[state.hover.key] = state.hover.i;
+    return s;
+  }
+
+  var cards = [];
+  function buildCats() {
+    var host = document.getElementById("cats");
+    CATS.forEach(function (cat) {
+      var sec = document.createElement("section"); sec.className = "cat";
+      var h = document.createElement("h2"); h.textContent = cat.title; sec.appendChild(h);
+      var sub = document.createElement("p"); sub.className = "sub"; sub.textContent = cat.sub; sec.appendChild(sub);
+      var grid = document.createElement("div"); grid.className = "opts"; sec.appendChild(grid);
+      cat.opts.forEach(function (opt, i) {
+        var on = i === LAST[cat.key];
+        var label = document.createElement("label"); label.className = "opt" + (on ? " on" : "");
+        var input = document.createElement("input");
+        input.type = "radio"; input.name = "cat-" + cat.key; input.value = String(i);
+        if (on) input.checked = true;
+        var cv = document.createElement("canvas"); cv.width = SW * 3; cv.height = SH * 3;
+        var nm = document.createElement("span"); nm.className = "nm";
+        var letter = document.createElement("i"); letter.textContent = String.fromCharCode(65 + i);
+        nm.appendChild(letter); nm.appendChild(document.createTextNode(opt.name));
+        var ds = document.createElement("span"); ds.className = "ds"; ds.textContent = opt.ds;
+        label.appendChild(input); label.appendChild(cv); label.appendChild(nm); label.appendChild(ds);
+        grid.appendChild(label);
+        input.addEventListener("change", function () {
+          state.sel[cat.key] = i;
+          Array.prototype.forEach.call(grid.children, function (el, k) { el.classList.toggle("on", k === i); });
+          refresh();
+        });
+        function over() { state.hover = { key: cat.key, i: i }; refreshBig(); }
+        function out() { state.hover = null; refreshBig(); }
+        label.addEventListener("mouseenter", over);
+        label.addEventListener("mouseleave", out);
+        input.addEventListener("focus", over);
+        input.addEventListener("blur", out);
+        cards.push({ cv: cv, key: cat.key, i: i });
+      });
+      host.appendChild(sec);
+    });
+  }
+
+  var big;
+  function refreshBig() {
+    var sel = effective();
+    drawTo(big, sel, state.grid);
+    document.getElementById("ascii").textContent = build(sel).join("\n");
+  }
+  function refreshCards() {
+    cards.forEach(function (c) {
+      var sel = {};
+      CATS.forEach(function (cat) { sel[cat.key] = state.sel[cat.key]; });
+      sel[c.key] = c.i;
+      drawTo(c.cv, sel, false);
+    });
+  }
+  function summaryText() {
+    var parts = [], code = [];
+    CATS.forEach(function (c) {
+      var i = state.sel[c.key];
+      parts.push(c.title + " " + String.fromCharCode(65 + i) + "「" + c.opts[i].name + "」");
+      code.push(c.key + "=" + String.fromCharCode(65 + i));
+    });
+    return parts.join(" · ") + "\n" + code.join(" ") + " outline=teeth";
+  }
+  function refresh() {
+    refreshBig();
+    refreshCards();
+    document.getElementById("summary").textContent = summaryText();
+  }
+
+  function init() {
+    big = document.getElementById("big");
+    big.width = SW * 8; big.height = SH * 8;
+    buildCats();
+    refresh();
+    document.getElementById("grid").addEventListener("change", function (e) { state.grid = e.target.checked; refreshBig(); });
+    document.getElementById("reset").addEventListener("click", function () {
+      CATS.forEach(function (c) { state.sel[c.key] = LAST[c.key]; });
+      Array.prototype.forEach.call(document.querySelectorAll(".opts"), function (grid, ci) {
+        var want = LAST[CATS[ci].key];
+        Array.prototype.forEach.call(grid.children, function (el, k) {
+          el.classList.toggle("on", k === want);
+          el.querySelector("input").checked = (k === want);
+        });
+      });
+      refresh();
+    });
+    var copied = document.getElementById("copied");
+    document.getElementById("copy").addEventListener("click", function () {
+      var text = summaryText();
+      var done = function (msg) { copied.textContent = msg; setTimeout(function () { copied.textContent = ""; }, 2400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done("已复制"); }, function () { done("复制失败，请手动选中上面的文字"); });
+      } else { done("请手动选中上面的文字复制"); }
+    });
+  }
+
+  window.__CASTLEV__ = { CATS: CATS, build: build, COL: COL, LAST: LAST };
+  init();
+})();
+</script>
+</body>
+</html>

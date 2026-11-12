@@ -335,7 +335,7 @@ func (a *App) stepOnce() {
 		// A run can end without the results screen being entered through the
 		// flagpole: running out of lives goes straight to it.
 		if a.sm.Is(engine.StateResults) && !a.recorded && !a.world.Tally.Done {
-			a.resultCleared = a.world.Player.SlideDown
+			a.resultCleared = a.world.Cleared
 		}
 	}
 }
@@ -610,6 +610,7 @@ func (a *App) drawGame(w, h int) {
 
 	c := a.scene.Draw(a.world, a.colsPerTile)
 	cells := c.Convert(cols, rows, a.unicode)
+	render.OverlayFloatTexts(cells, cols, rows, a.world, a.colsPerTile, a.theme)
 
 	// Write only cells that changed since the last frame, except on a periodic
 	// full repaint where every cell is written to resynchronise with the

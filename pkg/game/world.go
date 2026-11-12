@@ -88,6 +88,22 @@ type World struct {
 
 	// Events records things the presentation layer should react to.
 	Events []Event
+
+	// FlagBonus is the pole score floating up the pole, nil when none shows.
+	FlagBonus *FlagBonus
+	// Cleared is set once the pole has been grabbed, and stays set through the
+	// walk to the castle and the results. The results screen reads it to tell a
+	// cleared level from a game over; SlideDown cannot be used for that, since
+	// it ends when the slide does.
+	Cleared bool
+	// ClearedAt is the step the pole was grabbed on. The castle lights its
+	// windows counting from it.
+	ClearedAt int
+	// FlagDrop is how far the flag cloth has slid down the pole, in game units.
+	FlagDrop engine.Fixed
+	// flagPhase and flagWait drive the end-of-level sequence.
+	flagPhase flagPhase
+	flagWait  int
 }
 
 // Tally drives the end-of-level score conversion.
@@ -184,6 +200,12 @@ func (w *World) Reset() {
 	w.Bumps = nil
 	w.CoinFX = nil
 	w.CoinPlus = nil
+	w.FlagBonus = nil
+	w.Cleared = false
+	w.ClearedAt = 0
+	w.FlagDrop = 0
+	w.flagPhase = flagSliding
+	w.flagWait = 0
 	w.usedBlocks = map[int]bool{}
 	w.revealed = map[int]bool{}
 	w.TimeLeft = w.Level.TimeLimit
@@ -269,16 +291,6 @@ func (w *World) stepPlaying(in engine.Pressed) {
 	if w.Player.Right() > engine.Fixed(w.Level.FlagX)*engine.Tile &&
 		w.Player.Left() < engine.Fixed(w.Level.FlagX+1)*engine.Tile {
 		w.startFlagpole()
-	}
-}
-
-// stepFlagpole advances the end-of-level sequence.
-func (w *World) stepFlagpole() {
-	w.updateCoinFX()
-	w.Player.updateSlide(w.Level)
-	if w.Player.Pos.Y+w.Player.H >= engine.Fixed(w.Level.FlagBot+1)*engine.Tile {
-		w.SM.ShowResults()
-		w.startTally()
 	}
 }
 
@@ -691,38 +703,6 @@ func (w *World) killPlayer() {
 	w.Player.Die()
 	w.SM.Die()
 	w.combo = 0
-}
-
-// startFlagpole begins the slide.
-func (w *World) startFlagpole() {
-	if !w.SM.TouchFlag() {
-		return
-	}
-	p := w.Player
-	p.SlideDown = true
-	p.Vel = engine.Vec2{}
-	p.Pos.X = engine.Fixed(w.Level.FlagX)*engine.Tile - p.W/2
-	w.Score.add(flagpoleScore(p.Pos.Y, w.Level))
-}
-
-// flagpoleScore rewards touching the pole higher up.
-func flagpoleScore(y engine.Fixed, lv *level.Level) int {
-	height := engine.Fixed(lv.FlagBot-lv.FlagTop+1) * engine.Tile
-	if height <= 0 {
-		return 100
-	}
-	frac := (engine.Fixed(lv.FlagBot+1)*engine.Tile - y) * 100 / height
-	switch {
-	case frac > 85:
-		return 5000
-	case frac > 65:
-		return 2000
-	case frac > 45:
-		return 800
-	case frac > 25:
-		return 400
-	}
-	return 100
 }
 
 // CameraVerticalMargin is how far above or below its resting position the

@@ -102,12 +102,17 @@ func shouldJump(w *game.World) bool {
 		return true
 	}
 
-	// An enemy a short distance ahead.
+	// An enemy ahead, within reach of the jump. The faster the bot is going, the
+	// sooner it has to jump to clear it, so the distance grows with speed: two
+	// tiles at rest, plus the ground covered in the time it takes the jump to
+	// rise over an enemy. A fixed two tiles was tuned to the old, slower
+	// acceleration and jumped too late once running got quicker.
+	reach := engine.Tile.Mul(2) + p.Vel.X.Abs()*12
 	for _, e := range w.Enemies {
 		if e.Removed || e.Squashed > 0 {
 			continue
 		}
-		if e.Pos.X > p.Pos.X && e.Pos.X-p.Pos.X < engine.Tile.Mul(2) {
+		if e.Pos.X > p.Pos.X && e.Pos.X-p.Pos.X < reach {
 			return true
 		}
 	}

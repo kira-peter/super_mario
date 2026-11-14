@@ -88,9 +88,11 @@ func TestPlayerAcceleratesToWalkSpeed(t *testing.T) {
 	if w.Player.Vel.X != Default.WalkMax {
 		t.Errorf("walk speed = %v, want %v", w.Player.Vel.X, Default.WalkMax)
 	}
-	// The original reaches walking speed in roughly 20 to 40 frames.
-	if frames < 15 || frames > 60 {
-		t.Errorf("reached walk speed in %d frames, want roughly 20-40", frames)
+	// Walk speed in about nine frames, a sixth of a second. The original takes
+	// twenty to forty; that was deliberately quickened, because a terminal adds
+	// its own delay to every key press (see Default).
+	if frames < 6 || frames > 14 {
+		t.Errorf("reached walk speed in %d frames, want about 9", frames)
 	}
 }
 

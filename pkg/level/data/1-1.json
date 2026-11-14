@@ -1,7 +1,7 @@
 {
  "name": "1-1",
  "world": "1-1",
- "width": 212,
+ "width": 186,
  "height": 15,
  "timeLimit": 400,
  "spawn": {
@@ -9,26 +9,26 @@
   "y": 12
  },
  "flag": {
-  "x": 198,
+  "x": 169,
   "topY": 2,
   "bottomY": 12
  },
  "rows": [
-  "                                                                                                                                                                                                                    ",
-  "                                                                                                                                                                                                                    ",
-  "                                                                                                                                                                                                      T             ",
-  "                                                                                                                                                                                                      F             ",
-  "                                                                                                                                                                                                      F             ",
-  "                      ?                                                         ?                                                                                                                     F             ",
-  "                                                                                                                                                                                                      F             ",
-  "                                                                                        o                                                                                                             F             ",
-  "                                                                                       o o                                                                     H                                      F             ",
-  "                ?   B?B?B                     []         []     B??B         BBB?BBB          B?B?                                       H   H                HH                                      F             ",
-  "                                      []      {}         {}                                                                             HH   HH              HHH                                      F             ",
-  "                            []        {}      {}         {}                                                                            HHH   HHH            HHHH                                      F             ",
-  "                            {}        {}      {}         {}                                                                           HHHH   HHHH          HHHHH                                      F             ",
-  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  "                                                                                                                                                                                          ",
+  "                                                                                                                                                                                          ",
+  "                                                                                                                                                                         T                ",
+  "                                                                                                                                                                         F                ",
+  "                                                                                                                                                                         F                ",
+  "                      ?                                                         ?                                                                                        F                ",
+  "                                                                                                                                                                         F                ",
+  "                                                                                        o                                                                                F                ",
+  "                                                                                       o o                                                                     H         F                ",
+  "                ?   B?B?B                     []         []     B??B         BBB?BBB          B?B?                                       H   H                HH         F                ",
+  "                                      []      {}         {}                                                                             HH   HH              HHH         F                ",
+  "                            []        {}      {}         {}                                                                            HHH   HHH            HHHH         F                ",
+  "                            {}        {}      {}         {}                                                                           HHHH   HHHH          HHHHH         F                ",
+  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
  ],
  "contents": [
   {

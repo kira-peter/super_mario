@@ -432,8 +432,9 @@ func (a *App) handleEvent(ev tcell.Event) {
 // once running, so a window well above one repeat interval keeps a held key
 // down while letting go of it stop the player quickly. Too short and movement
 // stutters between repeats; too long and the player keeps sliding after the key
-// is released.
-const releaseWindow = 180 * time.Millisecond
+// is released. 100 ms is two repeat intervals at the slow end: it rides over a
+// missed repeat, and lets go about twice as fast as the 180 ms it replaced.
+const releaseWindow = 100 * time.Millisecond
 
 // sweepReleases drops keys that have not been seen recently.
 //
@@ -599,8 +600,12 @@ func (a *App) applyViewport(cols, rows int) {
 	a.world.SetViewport(w, h)
 }
 
+// hudRows is how many terminal rows the status line takes, at the top of the
+// screen as in the original: the picture is drawn below it.
+const hudRows = 1
+
 func (a *App) drawGame(w, h int) {
-	rows := h - 1
+	rows := h - hudRows
 	if rows < 1 {
 		rows = 1
 	}
@@ -630,7 +635,7 @@ func (a *App) drawGame(w, h int) {
 			if cell.BG != nil {
 				style = style.Background(cell.BG.(tcell.Color))
 			}
-			a.screen.SetContent(cx, cy, cell.Rune, nil, style)
+			a.screen.SetContent(cx, cy+hudRows, cell.Rune, nil, style)
 		}
 	}
 	a.prevCells = cells
@@ -645,12 +650,13 @@ func sameCell(a, b render.Cell) bool {
 	return a.Rune == b.Rune && a.FG == b.FG && a.BG == b.BG
 }
 
-// drawHUD writes the status line on the last row.
+// drawHUD writes the status line on the top row, and a notice, if any, on the
+// row under it.
 func (a *App) drawHUD(w, h int) {
 	style := tcell.StyleDefault.
 		Foreground(a.theme.HudText).
 		Background(a.theme.Sky)
-	row := h - 1
+	row := 0
 	text := render.HUDRow(a.world, w)
 	x := 0
 	for _, r := range text {
@@ -668,7 +674,7 @@ func (a *App) drawHUD(w, h int) {
 			if x >= w {
 				break
 			}
-			a.screen.SetContent(x, h-2, r, nil, nstyle)
+			a.screen.SetContent(x, row+1, r, nil, nstyle)
 			x++
 		}
 	}

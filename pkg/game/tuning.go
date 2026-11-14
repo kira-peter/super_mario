@@ -118,22 +118,47 @@ type Tuning struct {
 	ItemGravity engine.Fixed
 }
 
-// Default is the tuning that matches the original game's feel.
+// Default is the tuning that matches the original game's feel where a terminal
+// allows it.
+//
+// The top speeds and the jump's peak height are the original's. How fast Mario
+// gets going, stops and turns is not: those are several times quicker. A
+// terminal sends no key-up and starts auto-repeat only after half a second, so
+// input reaches the game later and leaves it later than a pad's would; with the
+// original's gentle acceleration on top of that, walking felt like wading. The
+// jump keeps its height but rises faster, so it spends about an eighth less
+// time in the air.
 var Default = Tuning{
-	WalkMax:   engine.FromFloat(1.5625),
-	RunMax:    engine.FromFloat(2.5),
-	WalkAccel: engine.FromFloat(0.037109375),
-	RunAccel:  engine.FromFloat(0.0556640625),
-	Friction:  engine.FromFloat(0.05078125),
-	SkidDecel: engine.FromFloat(0.1015625),
-	AirAccel:  engine.FromFloat(0.02783203125),
-	AirDrag:   0,
+	WalkMax: engine.FromFloat(1.5625),
+	RunMax:  engine.FromFloat(2.5),
+	// Walk speed in nine frames, run speed in nine more: 0.15 s and 0.3 s,
+	// where the original takes 0.72 s and 1 s.
+	WalkAccel: engine.FromFloat(0.17361),
+	RunAccel:  engine.FromFloat(0.10417),
+	// Letting go at walk speed slides under half a tile, where the original
+	// slides one and a half.
+	Friction: engine.FromFloat(0.171),
+	// A run turns round in ten frames, 0.17 s, where the original takes 0.42 s.
+	SkidDecel: engine.FromFloat(0.25),
+	// Air control reaches walk speed in about 36 frames, where the original
+	// takes 56. It was first left near the original, and the air felt dead next
+	// to the quickened ground. It is still well under the ground figure, so a
+	// jump is a commitment: a full sprint jump stays up about 54 frames, and
+	// steered hard back for all of them it sheds 54 x 0.044 = 2.38 of its 2.5
+	// px/f, so it still lands moving forward, as in the original; it cannot be
+	// turned round in the air. Anything above about 0.046 would let it.
+	AirAccel: engine.FromFloat(0.044),
+	AirDrag:  0,
 
-	JumpVelocity:         engine.FromFloat(-5.5),
-	JumpVelocityRunBonus: engine.FromFloat(-0.8),
+	// The peak is unchanged at about 4.9 tiles, which clears the tallest
+	// pipe. The jump starts faster and rises against heavier gravity, so it
+	// spends 46 frames in the air instead of 52. Rise gravity stays well under
+	// fall gravity, which keeps the light hang at the top of the arc.
+	JumpVelocity:         engine.FromFloat(-6.989),
+	JumpVelocityRunBonus: engine.FromFloat(-1.017),
 	JumpCutFactor:        engine.FromFloat(0.25),
 
-	GravityRise:        engine.FromFloat(0.1875),
+	GravityRise:        engine.FromFloat(0.30),
 	GravityFall:        engine.FromFloat(0.4375),
 	MaxFallSpeed:       engine.FromFloat(4.5),
 	GroundStickGravity: engine.FromFloat(0.0625),
@@ -143,11 +168,12 @@ var Default = Tuning{
 	ItemWalkSpeed:  engine.FromFloat(1.0),
 	ItemGravity:    engine.FromFloat(0.25),
 
-	StompBounce:   engine.FromFloat(-4.0),
-	StompBounceHi: engine.FromFloat(-5.0),
+	// Scaled with the jump, so a bounce reaches the same height as before.
+	StompBounce:   engine.FromFloat(-5.083),
+	StompBounceHi: engine.FromFloat(-6.353),
 
 	AirJump:         true,
-	AirJumpVelocity: engine.FromFloat(-5.0),
+	AirJumpVelocity: engine.FromFloat(-6.353),
 }
 
 // JumpVelocityFor returns the initial vertical speed for a jump started at the

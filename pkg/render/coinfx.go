@@ -13,15 +13,15 @@ import (
 const CoinCounterCol = 15
 
 // coinTarget is where a flying coin lands, in canvas pixels: the coin counter,
-// which sits on the status line just below the bottom of the picture.
+// which sits on the status line just above the top of the picture.
 func (d drawer) coinTarget() (int, int) {
-	return CoinCounterCol, d.artH - 1
+	return CoinCounterCol, -1
 }
 
 // coins draws the coins popping out of blocks and flying to the counter.
 //
-// The flight is a curve, not a straight line: it rises first and then drops
-// into the counter, which reads as the coin being thrown there rather than
+// The counter is at the top of the screen, so a coin rises to it. It starts
+// slowly and speeds up as it goes, which reads as being pulled in rather than
 // sliding along a rail.
 func (d drawer) coins(w *game.World) {
 	k := d.castScale()
@@ -49,11 +49,9 @@ func (d drawer) coins(w *game.World) {
 		x, y := sx, sy
 		if c.Pop == 0 {
 			p := c.Progress()
-			x = sx + int(float64(tx-sx)*p)
-			// Ease in on the way down, with an arc of a couple of tiles over
-			// the straight line.
-			lift := float64(2*d.px) * 4 * p * (1 - p)
-			y = sy + int(float64(ty-sy)*p*p-lift)
+			e := p * p
+			x = sx + int(float64(tx-sx)*e)
+			y = sy + int(float64(ty-sy)*e)
 		}
 		d.c.blitArt(coin, x-size/2, y-size/2, k, false, pal)
 	}

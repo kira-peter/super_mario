@@ -5,6 +5,31 @@ import (
 	"testing"
 )
 
+// TestFlagpoleIsCloseToTheLastStairs is the regression test for a long empty
+// run between the final staircase and the pole. In the original the pole
+// stands a few tiles past the stairs, close enough to jump at from the top
+// step; here it had drifted to thirty-eight tiles.
+func TestFlagpoleIsCloseToTheLastStairs(t *testing.T) {
+	lv, err := LoadEmbedded("1-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lastStair := -1
+	for y := 0; y < lv.Height; y++ {
+		for x := 0; x < lv.FlagX; x++ {
+			if lv.TileAt(x, y).Glyph == 'H' && x > lastStair {
+				lastStair = x
+			}
+		}
+	}
+	if lastStair < 0 {
+		t.Fatal("no staircase before the flagpole")
+	}
+	if gap := lv.FlagX - lastStair - 1; gap < 4 || gap > 12 {
+		t.Errorf("the pole is %d tiles past the last stair, want a short run of 4 to 12", gap)
+	}
+}
+
 func TestSymbolTableIsComplete(t *testing.T) {
 	// Every symbol the loader knows must round-trip into a Kind.
 	for ch := range symbolTable {

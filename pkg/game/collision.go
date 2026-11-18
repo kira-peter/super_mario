@@ -145,7 +145,13 @@ func resolveAxisY(lv *level.Level, b *Body, ignoreOneWay bool) (grounded bool, c
 	topRow := tileIndex(r.Y)
 	for col := x0; col <= x1; col++ {
 		t := lv.TileAt(col, topRow)
-		if t.Kind.Solid() && !(ignoreOneWay && t.Kind == level.KindOneWay) {
+		blocked := t.Kind.Solid() && !(ignoreOneWay && t.Kind == level.KindOneWay)
+		// A hidden block is air until it is found, but a head coming up into
+		// it must still stop there — that bump is the only way to reveal it.
+		if !blocked && b.Vel.Y < 0 && hiddenAt(lv, col, topRow) {
+			blocked = true
+		}
+		if blocked {
 			if b.Vel.Y < 0 {
 				b.Pos.Y = engine.Fixed(topRow+1) * engine.Tile
 				return false, &cell{col, topRow}
@@ -153,6 +159,14 @@ func resolveAxisY(lv *level.Level, b *Body, ignoreOneWay bool) (grounded bool, c
 		}
 	}
 	return false, nil
+}
+
+// hiddenAt reports whether a cell holds an unrevealed hidden block. The tile
+// grid says air; the payload says otherwise. Revealed blocks have become a
+// question tile, so this only answers true before the first bump.
+func hiddenAt(lv *level.Level, col, row int) bool {
+	idx, ok := lv.ContentAt(col, row)
+	return ok && lv.Contents[idx].Hidden
 }
 
 // crushedByTerrain reports whether a body's box is inside solid geometry and

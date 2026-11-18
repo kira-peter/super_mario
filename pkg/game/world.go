@@ -825,7 +825,14 @@ func (w *World) updateCamera(force bool) {
 	if targetY > lvH-w.ViewH {
 		targetY = lvH - w.ViewH
 	}
-	if targetY < 0 {
+	// When the whole level fits in the viewport, pin the ground at the golden
+	// ratio (61.8 % down) rather than clamping to 0, so the floor sits near
+	// the bottom of the screen whatever the aspect ratio is. The result can
+	// be negative (we see sky above the level top), which is fine.
+	if w.ViewH >= lvH {
+		// 618/1000 ≈ 1/φ
+		targetY = lvH - w.ViewH*618/1000
+	} else if targetY < 0 {
 		targetY = 0
 	}
 	w.CameraY = targetY

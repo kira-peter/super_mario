@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate levels/1-1.json.
+"""Generate pkg/level/data/1-1.json.
 
 The level is laid out here rather than hand-typed so the 212-wide rows stay
 aligned. The output is plain declarative JSON: no expressions, no code.
@@ -7,7 +7,7 @@ aligned. The output is plain declarative JSON: no expressions, no code.
 import json
 import os
 
-W, H = 212, 15
+W, H = 186, 15
 FLOOR_TOP = 13  # rows 13 and 14 are ground
 
 grid = [[" "] * W for _ in range(H)]
@@ -82,7 +82,7 @@ pipe(57, 4)
 
 # --- brick cluster before the first gap ----------------------------------
 brick(64, 9)
-brick(65, 9)
+question(65, 9, "poison")
 question(66, 9, "coin")
 brick(67, 9)
 
@@ -95,7 +95,7 @@ question(64, 5, "coin", count=1, hidden=True)
 brick(77, 9)
 brick(78, 9)
 brick(79, 9)
-brick(80, 9)
+question(80, 9, "gold")
 question(80, 5, "coin")
 brick(81, 9)
 brick(82, 9)
@@ -105,7 +105,7 @@ brick(83, 9)
 brick(94, 9)
 question(95, 9, "star")
 brick(96, 9)
-brick(97, 9)
+question(97, 9, "oneup")
 
 # --- coin arc over the second gap ----------------------------------------
 for i, x in enumerate(range(87, 90)):
@@ -127,7 +127,8 @@ for i in range(5):
         put(155 + i, y, "H")
 
 # --- flagpole ------------------------------------------------------------
-FLAG_X = 198
+# A short run from the top of the final staircase, close enough to jump at.
+FLAG_X = 169
 put(FLAG_X, 2, "T")
 for y in range(3, FLOOR_TOP):
     put(FLAG_X, y, "F")
@@ -153,7 +154,10 @@ level = {
     "entities": entities,
 }
 
-out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "levels")
+# The one home of the built-in levels: the copy the game compiles in. The
+# Makefile runs `fmt-levels` afterwards, which rewrites this in the canonical
+# layout, so the indentation used here does not matter.
+out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pkg", "level", "data")
 os.makedirs(out_dir, exist_ok=True)
 path = os.path.join(out_dir, "1-1.json")
 with open(path, "w", encoding="utf-8") as f:

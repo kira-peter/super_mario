@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>关卡编辑器</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='2' fill='%23e0b060'/%3E%3Crect x='1' y='1' width='14' height='14' rx='1' fill='none' stroke='%234a3220'/%3E%3Ctext x='8' y='12.5' font-size='11' font-weight='bold' text-anchor='middle' fill='%234a3220' font-family='monospace'%3E%3F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="loading" class="loading">
+  <div class="loading-box">
+    <div class="loading-title" data-i18n="app.title">关卡编辑器</div>
+    <div id="loading-msg" data-i18n="loading">正在载入游戏引擎…</div>
+    <div class="loading-bar"><div id="loading-fill"></div></div>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="title">
+    <input id="level-title" class="title-input" data-i18n-placeholder="untitled" maxlength="32">
+    <span id="dirty" class="dirty" hidden>●</span>
+  </div>
+  <div class="group">
+    <button id="btn-new" data-i18n="btn.new" data-i18n-title="btn.new.tip">新建</button>
+    <button id="btn-open" data-i18n="btn.open" data-i18n-title="btn.open.tip">打开</button>
+    <button id="btn-save" class="primary" data-i18n="btn.save" data-i18n-title="btn.save.tip">保存</button>
+  </div>
+  <div class="group">
+    <button id="btn-play" class="play" data-i18n="btn.play" data-i18n-title="btn.play.tip">▶ 试玩</button>
+    <button id="btn-play-here" data-i18n="btn.playHere" data-i18n-title="btn.playHere.tip">▶ 从这里</button>
+    <details class="play-opts">
+      <summary data-i18n="btn.options" data-i18n-title="btn.options.tip">选项</summary>
+      <div class="menu">
+        <label><input type="checkbox" id="opt-big"> <span data-i18n="opt.big"></span></label>
+        <label><input type="checkbox" id="opt-invincible"> <span data-i18n="opt.invincible"></span></label>
+        <hr>
+        <label><input type="checkbox" id="opt-fixed-seed"> <span data-i18n="opt.fixedSeed"></span></label>
+        <div class="seed-row"><input type="number" id="opt-seed" value="1" min="1"><button id="btn-reseed" data-i18n="opt.reseed" data-i18n-title="opt.reseed.tip"></button></div>
+        <label><input type="checkbox" id="opt-show-draws"> <span data-i18n="opt.showDraws"></span></label>
+      </div>
+    </details>
+  </div>
+  <div class="group">
+    <button id="btn-undo" data-i18n="btn.undo" data-i18n-title="btn.undo.tip">撤销</button>
+    <button id="btn-redo" data-i18n="btn.redo" data-i18n-title="btn.redo.tip">重做</button>
+  </div>
+  <div class="group spacer"></div>
+  <div class="group">
+    <select id="lang" data-i18n-title="lang" aria-label="Language"></select>
+    <button id="btn-help" data-i18n-title="btn.help.tip">?</button>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="left">
+    <section>
+      <h3 data-i18n="sec.tools">工具</h3>
+      <div id="tools" class="tools"></div>
+    </section>
+    <section>
+      <h3 data-i18n="sec.elements">元素</h3>
+      <div id="elements" class="elements"></div>
+    </section>
+    <section id="props-section">
+      <h3 data-i18n="sec.props">属性</h3>
+      <div id="props" class="props"></div>
+    </section>
+    <section>
+      <h3 data-i18n="sec.fill">铺地面</h3>
+      <div class="fill-ground">
+        <label><span data-i18n="fill.layers"></span> <select id="fill-layers"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+        <label><input type="checkbox" id="fill-keep" checked> <span data-i18n="fill.keep"></span></label>
+        <button id="btn-fill" data-i18n="fill.btn" data-i18n-title="fill.btn.tip"></button>
+      </div>
+    </section>
+  </aside>
+
+  <section class="center">
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="canvas"></canvas>
+      <canvas id="play-canvas" hidden></canvas>
+      <div id="play-hud" class="play-hud" hidden data-i18n="playing.hud"></div>
+      <div id="toast" class="toast" hidden></div>
+    </div>
+    <div class="minimap-wrap">
+      <canvas id="minimap"></canvas>
+    </div>
+    <footer class="statusbar">
+      <span id="st-pos"></span>
+      <span id="st-zoom"></span>
+      <span id="st-width"></span>
+      <span id="st-trace" hidden><button id="btn-trace" class="link"></button></span>
+      <span class="spacer"></span>
+      <span id="st-where" class="where"></span>
+      <span id="st-draft"></span>
+    </footer>
+  </section>
+
+  <aside class="right">
+    <section>
+      <h3 data-i18n="sec.level">关卡</h3>
+      <div class="level-props">
+        <label><span data-i18n="lvl.where"></span> <span id="level-where" class="muted"></span></label>
+        <label><span data-i18n="lvl.id"></span> <input id="level-id" data-i18n-placeholder="lvl.idPh" spellcheck="false"></label>
+        <label><span data-i18n="lvl.author"></span> <input id="level-author" maxlength="24"></label>
+        <label><span data-i18n="lvl.desc"></span> <textarea id="level-desc" maxlength="140" rows="2"></textarea></label>
+        <label><span data-i18n="lvl.diff"></span> <select id="level-diff"><option value="0" data-i18n="lvl.diffNone"></option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+        <label><span data-i18n="lvl.time"></span> <input id="level-time" type="number" min="10" max="999" step="10"></label>
+        <div class="width-row">
+          <label><span data-i18n="lvl.width"></span> <input id="level-width" type="number" min="16" max="1000"></label>
+          <select id="width-side"><option value="right" data-i18n="lvl.right"></option><option value="left" data-i18n="lvl.left"></option></select>
+          <button id="btn-width" data-i18n="lvl.apply"></button>
+        </div>
+      </div>
+    </section>
+    <section id="look-section">
+      <h3><span data-i18n="sec.look"></span> <span class="hint">T</span></h3>
+      <div id="themes" class="themes"></div>
+      <div class="look-rows" id="look-rows"></div>
+      <button id="btn-reset-look" class="link" data-i18n="look.reset"></button>
+    </section>
+    <section>
+      <h3><span data-i18n="sec.check"></span> <span id="issue-count" class="count"></span></h3>
+      <ul id="issues" class="issues"></ul>
+    </section>
+  </aside>
+</main>
+
+<dialog id="dlg-open">
+  <h2 data-i18n="dlg.open"></h2>
+  <ul id="open-list" class="open-list"></ul>
+  <div class="dlg-buttons"><button onclick="this.closest('dialog').close()" data-i18n="dlg.cancel"></button></div>
+</dialog>
+
+<dialog id="dlg-new">
+  <h2 data-i18n="dlg.new"></h2>
+  <p class="muted" data-i18n="dlg.newHint"></p>
+  <div id="new-themes" class="themes"></div>
+  <label><span data-i18n="dlg.newWidth"></span> <input id="new-width" type="number" value="120" min="16" max="1000"></label>
+  <p class="muted" id="new-where"></p>
+  <div class="dlg-buttons">
+    <button onclick="this.closest('dialog').close()" data-i18n="dlg.cancel"></button>
+    <button id="btn-new-ok" class="primary" data-i18n="dlg.newBtn"></button>
+  </div>
+</dialog>
+
+<dialog id="dlg-confirm">
+  <h2 id="confirm-title"></h2>
+  <p id="confirm-text"></p>
+  <div class="dlg-buttons">
+    <button id="confirm-no" data-i18n="dlg.cancel"></button>
+    <button id="confirm-yes" class="primary" data-i18n="dlg.ok"></button>
+  </div>
+</dialog>
+
+<dialog id="dlg-help" class="help">
+  <h2 data-i18n="dlg.help"></h2>
+  <div id="help-body"></div>
+  <div class="dlg-buttons"><button onclick="this.closest('dialog').close()" data-i18n="dlg.close"></button></div>
+</dialog>
+
+<script src="wasm_exec.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

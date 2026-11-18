@@ -1,17 +1,103 @@
 // Command super-mario runs the game in the current terminal.
+//
+// Subcommands:
+//
+//	super-mario edit [--port N] [--dir D] [level]   open the level editor in a browser
+//	super-mario fmt-levels [-check] [dir]           rewrite level files in the canonical layout
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 
 	"super-mario/pkg/app"
+	"super-mario/pkg/catalog"
+	"super-mario/pkg/editor"
 )
 
+// builtinLevelDir is where the compiled-in levels live, relative to the
+// repository root.
+const builtinLevelDir = catalog.RepoLevelDir
+
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "fmt-levels":
+			os.Exit(runFmtLevels(os.Args[2:]))
+		case "edit":
+			os.Exit(runEdit(os.Args[2:]))
+		}
+	}
+	runGame()
+}
+
+func runEdit(args []string) int {
+	fs := flag.NewFlagSet("edit", flag.ExitOnError)
+	port := fs.Int("port", 0, "监听端口（默认随机挑一个空闲端口）")
+	dir := fs.String("dir", "", "内置关卡目录（默认在仓库里自动找 pkg/level/data）")
+	local := fs.String("local", "", "本地关卡目录（默认是程序旁的 levels/）")
+	fs.Parse(args)
+
+	cat := catalog.Default()
+	if *dir != "" {
+		if st, err := os.Stat(*dir); err != nil || !st.IsDir() {
+			fmt.Fprintf(os.Stderr, "关卡目录不存在：%s\n", *dir)
+			return 1
+		}
+		cat.BuiltinDir = *dir
+	}
+	if *local != "" {
+		cat.LocalDir = *local
+	}
+
+	open := ""
+	if fs.NArg() > 0 {
+		open = strings.TrimSuffix(filepath.Base(fs.Arg(0)), ".json")
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	err := editor.Run(ctx, editor.Config{
+		Port:    *port,
+		Catalog: cat,
+		Open:    open,
+		Out:     os.Stdout,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
+}
+
+func runFmtLevels(args []string) int {
+	fs := flag.NewFlagSet("fmt-levels", flag.ExitOnError)
+	check := fs.Bool("check", false, "只检查不写入；有未规整的文件时以非零状态退出")
+	fs.Parse(args)
+	dir := builtinLevelDir
+	if fs.NArg() > 0 {
+		dir = fs.Arg(0)
+	}
+	n, err := fmtLevels(dir, *check)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	if *check && n > 0 {
+		fmt.Fprintf(os.Stderr, "%d 个关卡文件排版不一致，运行 `go run ./cmd/super-mario fmt-levels` 修正\n", n)
+		return 1
+	}
+	return 0
+}
+
+func runGame() {
 	var (
 		levelPath = flag.String("level", "", "关卡文件路径（默认使用内置 1-1）")
 		themeName = flag.String("theme", "ink", "配色主题：ink 或 paper")

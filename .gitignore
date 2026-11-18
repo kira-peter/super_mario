@@ -13,3 +13,15 @@ __pycache__/
 # 临时文件
 *.tmp
 *.log
+
+# 编辑器的 WASM 与配套脚本由 make build 生成，跟随本机 Go 版本
+pkg/editor/web/editor.wasm
+pkg/editor/web/wasm_exec.js
+
+# 自己画的关卡留给自己：只有内置的 1-1 进仓库。
+# 想贡献关卡时把它加进来：git add -f pkg/level/data/c-作者-名字.json
+pkg/level/data/*.json
+!pkg/level/data/1-1.json
+
+# 浏览器测试的截图
+tools/editor-e2e/shots/

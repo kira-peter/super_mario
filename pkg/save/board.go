@@ -34,6 +34,29 @@ func (e Entry) Seconds() float64 { return float64(e.Steps) / 60.0 }
 // Board is the ranked list of runs, best first.
 type Board struct {
 	Entries []Entry
+	// Bests is each level's best run, kept apart from the top ten so a level
+	// keeps its record even when other levels fill the board (spec
+	// level-select / 按关卡记录成绩).
+	Bests map[string]Entry
+}
+
+// BestFor returns a level's best run, if it has one.
+func (b *Board) BestFor(level string) (Entry, bool) {
+	e, ok := b.Bests[level]
+	return e, ok
+}
+
+// noteBest records e as its level's best if it beats the one there.
+func (b *Board) noteBest(e Entry) {
+	if e.Score <= 0 || e.Level == "" {
+		return
+	}
+	if b.Bests == nil {
+		b.Bests = map[string]Entry{}
+	}
+	if old, ok := b.Bests[e.Level]; !ok || better(e, old) {
+		b.Bests[e.Level] = e
+	}
 }
 
 // better reports whether a ranks above b: higher score wins, and on a tie the
@@ -54,6 +77,7 @@ func (b *Board) Add(e Entry) int {
 	if e.Score <= 0 {
 		return 0
 	}
+	b.noteBest(e)
 	b.Entries = append(b.Entries, e)
 	b.sort()
 	if len(b.Entries) > MaxEntries {

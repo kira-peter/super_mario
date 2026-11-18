@@ -245,3 +245,33 @@ func TestNoConfigDirIsHarmless(t *testing.T) {
 		t.Error("saving with no directory should warn")
 	}
 }
+
+// TestBestsAreKeptPerLevel: each level keeps its own best, even when other
+// levels fill the top ten, and the bests survive a save and load.
+func TestBestsAreKeptPerLevel(t *testing.T) {
+	var b Board
+	b.Add(Entry{Score: 500, Level: "c-tom-sky", Steps: 100})
+	for i := 0; i < MaxEntries+2; i++ {
+		b.Add(Entry{Score: 10000 + i, Level: "1-1", Steps: 100})
+	}
+	if e, ok := b.BestFor("c-tom-sky"); !ok || e.Score != 500 {
+		t.Errorf("the community level lost its best: %+v %v", e, ok)
+	}
+	if e, _ := b.BestFor("1-1"); e.Score != 10000+MaxEntries+1 {
+		t.Errorf("1-1 best = %d", e.Score)
+	}
+	b.Add(Entry{Score: 400, Level: "c-tom-sky"})
+	if e, _ := b.BestFor("c-tom-sky"); e.Score != 500 {
+		t.Error("a lower score replaced the best")
+	}
+	if _, ok := b.BestFor("1-2"); ok {
+		t.Error("a level never played has a best")
+	}
+
+	s := NewAt(t.TempDir())
+	s.Save(b)
+	got := s.Load()
+	if e, ok := got.BestFor("c-tom-sky"); !ok || e.Score != 500 {
+		t.Errorf("after reload: %+v %v", e, ok)
+	}
+}

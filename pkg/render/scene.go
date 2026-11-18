@@ -19,6 +19,72 @@ type Scene struct {
 	// Sky holds the drifting clouds. Nil draws a clear sky, which is what the
 	// tests that count pixels want.
 	Sky *Sky
+	// Fill is the sky behind everything. The zero value paints T.Sky, flat,
+	// which is the look of a level with no style.
+	Fill theme.SkyFill
+	// Transparent leaves the sky unpainted, so only what stands in the level
+	// is drawn and every other pixel stays nil. The editor's sprite atlas is
+	// cut from scenes drawn this way, so each element looks exactly as the
+	// game draws it.
+	Transparent bool
+}
+
+// ForLevel returns a scene for a level: the theme with the level's own colours
+// applied for what the terminal can show. The HUD is not drawn by the scene, so
+// it keeps the plain theme.
+func ForLevel(base theme.Tokens, themeName string, lv *level.Level, c theme.Capacity) Scene {
+	t, fill := theme.Apply(base, lv.Style, c)
+	if !fill.Gradient() && fill.Top == base.Sky {
+		fill = theme.SkyFill{}
+	}
+	return Scene{T: t, Theme: themeName, Fill: fill}
+}
+
+// paintSky fills the canvas with the sky. A gradient runs from the top of the
+// level to its bottom, in level space, so it scrolls with the camera instead of
+// being stuck to the screen: looking down from a tall stair shows more of the
+// horizon colour, as it should.
+func (s *Scene) paintSky(c *Canvas, w *game.World, camY, colsPerTile int) {
+	if s.Transparent {
+		return
+	}
+	if !s.Fill.Gradient() {
+		c.Clear(s.T.Sky)
+		return
+	}
+	levelH := w.Level.Height * colsPerTile
+	if levelH <= 1 {
+		c.Clear(s.Fill.Bottom)
+		return
+	}
+	var prev interface{}
+	var prevRow int = -1
+	for y := 0; y < c.H; y++ {
+		f := float64(camY+y) / float64(levelH-1)
+		col := s.Fill.At(f)
+		if prevRow >= 0 && col == prev {
+			// Same colour as the row above: copy it rather than recompute.
+			copy(c.Px[y*c.W:(y+1)*c.W], c.Px[prevRow*c.W:(prevRow+1)*c.W])
+			continue
+		}
+		for x := 0; x < c.W; x++ {
+			c.Px[y*c.W+x] = col
+		}
+		prev, prevRow = col, y
+	}
+}
+
+// skyAt is the sky colour behind an art row of the canvas, for the few places
+// that paint "background" on purpose, such as the inset beside a pipe body.
+func (d drawer) skyAt(y int, w *game.World) interface{} {
+	if !d.s.Fill.Gradient() {
+		return d.s.T.Sky
+	}
+	levelH := w.Level.Height * d.px
+	if levelH <= 1 {
+		return d.s.Fill.Bottom
+	}
+	return d.s.Fill.At(float64(d.camY+y) / float64(levelH-1))
 }
 
 // Draw renders the world into a canvas sized for the given terminal geometry.
@@ -52,10 +118,10 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 		artH = 7 * colsPerTile
 	}
 	c := NewCanvas(artW, artH)
-	c.Clear(s.T.Sky)
 
 	camX := WorldToArtScaled(w.CameraX, colsPerTile)
 	camY := WorldToArtScaled(w.CameraY, colsPerTile)
+	s.paintSky(c, w, camY, colsPerTile)
 
 	d := drawer{c: c, s: s, px: colsPerTile, set: set,
 		camX: camX, camY: camY, artW: artW, artH: artH}
@@ -250,7 +316,15 @@ func (d drawer) tile(tx, ty int, tile level.Tile, dx, dy int, w *game.World) {
 		if inset < 1 {
 			inset = 1
 		}
-		d.c.FillRect(dx, dy, p, p, t.Sky)
+		if d.s.Transparent {
+			// Nothing behind the pipe's inset: leave it clear.
+		} else if d.s.Fill.Gradient() {
+			for y := 0; y < p; y++ {
+				d.c.FillRect(dx, dy+y, p, 1, d.skyAt(dy+y, w))
+			}
+		} else {
+			d.c.FillRect(dx, dy, p, p, t.Sky)
+		}
 		if tile.Glyph == '{' {
 			d.c.FillRect(dx+inset, dy, p-inset, p, t.Pipe)
 			d.c.FillRect(dx+inset, dy, d.u(3), p, t.PipeHi)

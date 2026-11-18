@@ -26,6 +26,9 @@ const currentVersion = 2
 type Data struct {
 	Version int     `json:"version"`
 	Entries []Entry `json:"entries"`
+	// Bests is each level's best run. Saves written before it existed have
+	// none; they are rebuilt from Entries on load.
+	Bests map[string]Entry `json:"bests,omitempty"`
 
 	// HighScore is the version-1 field. It is read so an old save is not
 	// thrown away, folded into Entries on load, and never written back.
@@ -104,6 +107,16 @@ func (s *Store) Load() Board {
 			Level: "1-1",
 		})
 	}
+	for lvl, e := range d.Bests {
+		if e.Score > 0 {
+			e.Level = lvl
+			b.noteBest(e)
+		}
+	}
+	// Older saves had no per-level bests: rebuild them from the board.
+	for _, e := range b.Entries {
+		b.noteBest(e)
+	}
 	b.sort()
 	if len(b.Entries) > MaxEntries {
 		b.Entries = b.Entries[:MaxEntries]
@@ -129,7 +142,7 @@ func (s *Store) Save(b Board) {
 	if len(entries) > MaxEntries {
 		entries = entries[:MaxEntries]
 	}
-	raw, err := json.MarshalIndent(Data{Version: currentVersion, Entries: entries}, "", "  ")
+	raw, err := json.MarshalIndent(Data{Version: currentVersion, Entries: entries, Bests: b.Bests}, "", "  ")
 	if err != nil {
 		s.warn("存档编码失败，排行榜不会保存")
 		return

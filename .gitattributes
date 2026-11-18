@@ -1,0 +1,10 @@
+# Level files have one canonical layout, and the repository test compares them
+# byte for byte. Keep them LF everywhere, or a Windows checkout with
+# core.autocrlf turns every line into CRLF and fails that test untouched.
+pkg/level/data/*.json text eol=lf
+
+# The editor's web files are embedded into the binary as they are on disk.
+pkg/editor/web/*.js   text eol=lf
+pkg/editor/web/*.mjs  text eol=lf
+pkg/editor/web/*.html text eol=lf
+pkg/editor/web/*.css  text eol=lf

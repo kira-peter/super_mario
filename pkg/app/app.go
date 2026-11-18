@@ -7,6 +7,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
+	"super-mario/pkg/catalog"
+	"super-mario/pkg/editor"
 	"super-mario/pkg/engine"
 	"super-mario/pkg/game"
 	"super-mario/pkg/level"
@@ -49,6 +51,21 @@ type App struct {
 	theme  theme.Tokens
 	scene  render.Scene
 	notice string
+	// capacity is what the terminal can show, kept so the scene can be
+	// rebuilt in a new level's colours.
+	capacity theme.Capacity
+	// fromSelect is set when the current run was started from the level
+	// list, so that leaving it goes back there.
+	fromSelect bool
+	// catalog is where levels are found: built-in and local.
+	catalog *catalog.Catalog
+	// levelKey names the current level across both sources; the
+	// leaderboard records runs under it.
+	levelKey string
+	// editor is the level editor once started from the title menu.
+	editor *editor.Service
+	// openURL opens the editor in a browser; tests replace it.
+	openURL func(url string) error
 
 	colsPerTile int
 	unicode     bool
@@ -124,30 +141,31 @@ func newApp(s tcell.Screen, opts Options, lv *level.Level) (*App, error) {
 	tok = theme.Degrade(tok, cap)
 
 	a := &App{
-		screen:  s,
-		opts:    opts,
-		store:   save.New(),
-		input:   engine.NewInput(nil),
-		clock:   engine.NewClock(),
-		sm:      engine.NewStateMachine(),
-		lv:      lv,
-		theme:   tok,
-		unicode: true,
-		heldAt:  map[engine.Key]timeStamp{},
-		timeNow: time.Now,
+		screen:   s,
+		opts:     opts,
+		store:    save.New(),
+		input:    engine.NewInput(nil),
+		clock:    engine.NewClock(),
+		sm:       engine.NewStateMachine(),
+		lv:       lv,
+		theme:    tok,
+		capacity: cap,
+		catalog:  catalog.Default(),
+		levelKey: lv.Name,
+		unicode:  true,
+		heldAt:   map[engine.Key]timeStamp{},
+		timeNow:  time.Now,
 	}
 	a.store.Warn = func(msg string) { a.notice = msg }
 
 	a.board = a.store.Load()
 	tuning := game.Default
 	tuning.AirJump = opts.AirJump
-	a.world = game.NewWorld(lv, &tuning, a.sm, 3)
-	// The world must sample the same input the terminal writes into. Giving
-	// them separate instances makes the game tick along with no controls.
-	a.world.Input = a.input
+	a.world = newWorldFor(lv, &tuning, a)
 	a.title = newTitleState(a)
 
-	a.scene = render.Scene{T: tok, Theme: opts.ThemeName, Sky: render.NewSky(time.Now().UnixNano())}
+	a.scene = render.ForLevel(tok, opts.ThemeName, lv, cap)
+	a.scene.Sky = render.NewSky(time.Now().UnixNano())
 	a.frameEvery = 60 / max(1, opts.FPS)
 	tw, th := 120, 40
 	if s != nil {
@@ -198,6 +216,15 @@ func loadLevel(path string) (*level.Level, error) {
 		return level.LoadFile(path)
 	}
 	return level.LoadEmbedded("1-1")
+}
+
+// newWorldFor builds the world for a level, wired to the app's input.
+func newWorldFor(lv *level.Level, t *game.Tuning, a *App) *game.World {
+	w := game.NewWorld(lv, t, a.sm, 3)
+	// The world must sample the same input the terminal writes into. Giving
+	// them separate instances makes the game tick along with no controls.
+	w.Input = a.input
+	return w
 }
 
 // detectCapacity asks the terminal what it can do.
@@ -257,6 +284,7 @@ func max(a, b int) int {
 // Run drives the game until the player quits.
 func (a *App) Run() error {
 	defer a.screen.Fini()
+	defer a.closeEditor()
 
 	events := make(chan tcell.Event, 64)
 	go func() {
@@ -360,6 +388,9 @@ func (a *App) startRun() {
 	a.resultHadPrev = false
 	a.resultCleared = false
 	a.world.ResetRun()
+	// Every run gets its own seed, so random blocks differ from run to run;
+	// within the run they are reproducible from it.
+	a.world.Seed = a.timeNow().UnixNano()
 	a.world.Reset()
 	a.world.Score.Points = 0
 	a.world.Score.Coins = 0
@@ -615,7 +646,7 @@ func (a *App) drawGame(w, h int) {
 
 	c := a.scene.Draw(a.world, a.colsPerTile)
 	cells := c.Convert(cols, rows, a.unicode)
-	render.OverlayFloatTexts(cells, cols, rows, a.world, a.colsPerTile, a.theme)
+	render.OverlayFloatTexts(cells, cols, rows, a.world, a.colsPerTile, a.scene.T)
 
 	// Write only cells that changed since the last frame, except on a periodic
 	// full repaint where every cell is written to resynchronise with the

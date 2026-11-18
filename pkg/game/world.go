@@ -104,7 +104,23 @@ type World struct {
 	// flagPhase and flagWait drive the end-of-level sequence.
 	flagPhase flagPhase
 	flagWait  int
+
+	// Seed is this run's random seed. Random blocks draw from it, so a run
+	// with the same seed and the same inputs plays out the same.
+	Seed int64
+	// life counts the lives started in this run, from 0. Random blocks are
+	// drawn afresh for each one.
+	life int
+
+	// playtest holds the editor-only switches; zero in the terminal game.
+	playtest PlaytestOptions
+	// lastGround is where the player last stood, for the invincible
+	// playtest's rescue from a pit.
+	lastGround engine.Vec2
 }
+
+// Life is which life of the run is being played, counting from 0.
+func (w *World) Life() int { return w.life }
 
 // Tally drives the end-of-level score conversion.
 //
@@ -158,6 +174,7 @@ func NewWorld(lv *level.Level, t *Tuning, sm *engine.StateMachine, lives int) *W
 		revealed:   map[int]bool{},
 	}
 	w.Score.Lives = lives
+	w.drawRandomBlocks()
 	w.Player = NewPlayer(t, lv.SpawnX, lv.SpawnY)
 	w.resetEnemies()
 	w.ViewW = engine.Tile.Mul(10)
@@ -193,7 +210,9 @@ func (w *World) Reset() {
 	// changed, so after a respawn a used question block stayed solid and
 	// empty for the rest of the run.
 	w.Level.Restore()
+	w.drawRandomBlocks()
 	w.Player = NewPlayer(w.T, w.Level.SpawnX, w.Level.SpawnY)
+	w.lastGround = w.Player.Pos
 	w.Enemies = nil
 	w.Items = nil
 	w.Parts = nil
@@ -216,6 +235,7 @@ func (w *World) Reset() {
 	w.CameraY = 0
 	w.resetEnemies()
 	w.updateCamera(true)
+	w.applyPlaytestStart()
 }
 
 // Step advances one simulation step.
@@ -247,6 +267,7 @@ func (w *World) Step() {
 			if w.Score.Lives > 1 {
 				w.Score.Lives--
 				w.SM.Respawn()
+				w.life++
 				w.Reset()
 			} else {
 				w.Score.Lives = 0
@@ -284,8 +305,13 @@ func (w *World) stepPlaying(in engine.Pressed) {
 
 	// Falling out of the level is death.
 	if w.Player.Pos.Y > engine.Fixed(w.Level.Height)*engine.Tile {
-		w.killPlayer()
+		if w.playtest.Invincible {
+			w.rescueFromPit()
+		} else {
+			w.killPlayer()
+		}
 	}
+	w.rememberGround()
 
 	// Touching the flagpole starts the slide.
 	if w.Player.Right() > engine.Fixed(w.Level.FlagX)*engine.Tile &&
@@ -336,7 +362,7 @@ func (w *World) tickClock() {
 	if w.TimeLeft > 0 {
 		w.TimeLeft--
 	}
-	if w.TimeLeft == 0 {
+	if w.TimeLeft == 0 && !w.playtest.Invincible {
 		w.killPlayer()
 	}
 }
@@ -684,7 +710,7 @@ func (w *World) cleanup() {
 // hurtPlayer applies enemy contact damage.
 func (w *World) hurtPlayer() {
 	p := w.Player
-	if p.Invulnerable() {
+	if p.Invulnerable() || w.playtest.Invincible {
 		return
 	}
 	if p.Form == FormSmall {
@@ -821,7 +847,9 @@ func (w *World) RunSteps() int { return w.runSteps }
 
 // ResetRun clears the per-run counters. Respawning after a death keeps them,
 // since that is the same run; starting over does not.
-func (w *World) ResetRun() { w.runSteps = 0 }
+// ResetRun starts the bookkeeping of a new run: the play timer, and the life
+// count random blocks draw by. Call it before Reset.
+func (w *World) ResetRun() { w.runSteps = 0; w.life = 0 }
 
 // StepCount returns how many simulation steps this run has executed.
 func (w *World) StepCount() int { return w.stepCount }

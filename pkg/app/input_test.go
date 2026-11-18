@@ -19,6 +19,7 @@ func newHeadlessApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatalf("build app: %v", err)
 	}
+	a.catalog = testCatalog(t)
 	// Tests about movement need the world actually stepping; the title
 	// screen deliberately does not advance it.
 	a.sm.StartRun()

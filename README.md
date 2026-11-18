@@ -159,14 +159,52 @@ go run ./cmd/super-mario
 
 ```json
 {
-  "width": 212, "height": 15, "timeLimit": 400,
+  "name": "1-1",
+  "world": "1-1",
+  "width": 186,
+  "height": 15,
+  "timeLimit": 400,
+  "meta": {"title": "草原初探", "author": "tom", "description": "第一关", "difficulty": 1},
   "spawn": {"x": 2, "y": 12},
-  "flag":  {"x": 198, "topY": 2, "bottomY": 12},
-  "rows":   ["...每行地形..."],
-  "contents": [{"x": 21, "y": 9, "kind": "mushroom", "count": 1}],
-  "entities": [{"kind": "goomba", "x": 22, "y": 12}]
+  "flag": {"x": 169, "topY": 2, "bottomY": 12},
+  "rows": [
+    "...每行地形，一行一个字符串..."
+  ],
+  "contents": [
+    {"x": 21, "y": 9, "kind": "mushroom"}
+  ],
+  "entities": [
+    {"kind": "goomba", "x": 22, "y": 12}
+  ]
 }
 ```
+
+`meta` 整体可选：`title` 最多 32 字、`author` 最多 24 字、`description` 最多 140 字，`difficulty` 取 1–5。
+
+### 关卡外观
+
+`style` 也是整体可选，不写就是游戏默认的样子。每一项可以写色板名，也可以写 `#rrggbb`：
+
+<!-- style-example -->
+```json
+"style": {"theme": "snow", "sky": {"top": "#1b2a4a", "bottom": "#f3a65a"}, "brick": "blue", "pipe": "#3a7bd5"}
+```
+
+- `theme`：整关主题，给所有元素一套搭配好的颜色。写了主题，其他项就只覆盖主题里的对应项。
+- `sky`：天空。可以是预设名、一个颜色，或者 `{"top", "bottom"}` 两色渐变（从关卡顶部到底部）。
+- `ground`（土层）、`turf`（地面最上层的草皮）、`brick`、`stair`（阶梯硬块）、`pipe`：每项只选一种主色，高光、阴影、砖缝都由它自动推出。
+
+| 项 | 可用名称 |
+|---|---|
+| `theme` | `grassland` 草原、`dusk` 黄昏、`night` 夜晚、`dawn` 黎明、`snow` 雪原、`desert` 沙漠、`underground` 地下、`lava` 熔岩 |
+| `sky` | `day` 白天蓝、`dusk` 黄昏橙、`night` 夜空、`dawn` 黎明粉、`overcast` 阴天灰、`starry` 星空 |
+| `ground` | `brown` 棕土、`red` 红土、`gray` 灰岩、`sand` 沙土、`frozen` 冻土、`ash` 火山灰 |
+| `turf` | `green` 草地绿、`autumn` 秋草橙、`snow` 雪地白、`sand` 沙漠黄、`amethyst` 紫晶、`ember` 余烬红 |
+| `brick` | `red` 红砖、`blue` 蓝砖、`stone` 石砖、`gold` 金砖 |
+| `stair` | `gray` 灰石、`sand` 砂岩、`slate` 青石、`ice` 冰块、`obsidian` 黑曜石 |
+| `pipe` | `green` 绿、`blue` 蓝、`orange` 橙、`gray` 灰 |
+
+配色只影响关卡画面，不影响 HUD、菜单和角色。在 256 色终端上，渐变天空会变成几条由深到浅的色带；如果某个元素和天空会落到同一个色号，它会自动换成相邻的可区分颜色。单色终端忽略配色。
 
 地形符号表：
 
@@ -178,19 +216,50 @@ go run ./cmd/super-mario
 | `B` | 可击碎砖块 | | `T` | 旗杆顶球 |
 | `?` | 问号块 | | `o` | 金币 |
 
-`contents` 里的 `kind` 可取 `coin` / `mushroom` / `star` / `oneup`，`hidden: true` 表示隐形块（必须放在空气里，顶到才显形）。
+`contents` 里的 `kind` 可取 `coin` / `mushroom` / `star` / `oneup` / `poison` / `gold`；`count` 是能顶几次（省略为 1），`hidden: true` 表示隐形块（必须放在空气里，顶到才显形）。
+
+内置关卡只有一份，在 `pkg/level/data/`。文件有固定排版：一行地形占一行，方块和敌人按坐标排序、各占一行，这样 PR 里的 diff 就是改动本身。测试会检查每个内置关卡都已规整。
 
 修改关卡：
 
 ```bash
-# 编辑 tools/genlevel.py 后重新生成
+# 编辑 tools/genlevel.py 后重新生成（直接写入 pkg/level/data/1-1.json 并规整）
 make gen-level
 
-# 或者直接改 JSON，用 -level 加载，不用重新编译
-./build/super-mario.exe -level ./levels/1-1.json
+# 手改 JSON 后规整排版；加 -check 只检查不写
+go run ./cmd/super-mario fmt-levels
+
+# 加载任意关卡文件试玩，不用重新编译
+./build/super-mario.exe -level ./pkg/level/data/1-1.json
 ```
 
 加载时会做完整校验：越界坐标、缺出生点、行宽不符、未知符号、问号块没有内容物、隐形块放在实体里，都会报出具体的行列号并退出，不会以半个损坏的关卡开始游戏。
+
+## 设计关卡
+
+游戏自带一个浏览器里的关卡编辑器：
+
+```bash
+make build                      # 编译游戏和编辑器
+./build/super-mario.exe edit    # 打开编辑器（浏览器自动打开）
+./build/super-mario.exe edit 1-1  # 打开已有关卡接着改
+```
+
+- 画布用游戏自己的素材和配色画，所见即所得。
+- 画笔、矩形、橡皮、吸管、选择（点一个已放下的方块改它的内容物）、框选（复制 / 剪切 / 粘贴 / 拖动），水管、阶梯、坑、砖排、金币阵图章，一键铺地面。
+- 左边顺序是工具、元素、属性、铺地面；“属性”跟着当前工具和元素走：选图章时列出图章和尺寸，选元素时显示它的说明，画笔停在问号块上就能先定这一块放什么再画。
+- “选择”是第一个工具，也是默认工具：进编辑器先点方块改属性，不会误画。
+- 整关主题、天空（纯色或渐变）、草皮、砖块、硬块、水管配色。
+- 问号块内容物可以指定，也可以按权重随机。
+- 按 Enter 立刻试玩（Shift+Enter 从鼠标所在列开始），跑的是游戏本体的物理和渲染；Esc 回来后显示移动轨迹。
+- 边画边检查：游戏读不了的问题是错误，拦住保存；可能玩不好的地方是提示。
+- 保存直接写进 `pkg/level/data/`，没保存的改动自动存草稿。按 `?` 看全部快捷键。
+
+也可以在游戏标题菜单选“设计关卡”，不用命令。界面支持中文和英文，右上角切换。
+
+关卡存放在两处：内置目录 `pkg/level/data/`（编进程序，贡献 PR 用），和程序旁边的 `levels/`（运行时读取，不用重新编译；拷给别人时连同文件夹一起拷）。选关列表和编辑器的“打开”都会列出两处的关卡。
+
+编辑器只在本机（127.0.0.1）提供服务。想贡献关卡，看 [CONTRIBUTING-LEVELS.md](CONTRIBUTING-LEVELS.md)。
 
 ## 架构
 
@@ -226,10 +295,12 @@ tools/genlevel.py     1-1 关卡的排版脚本
 ## 开发
 
 ```bash
-make test     # 全部测试
+make test     # 全部测试（Go 测试和编辑器模型的 Node 测试）
 make vet      # 静态检查
 make fmt      # 格式化
-make gen-level  # 重新生成关卡
+make gen-level  # 重新生成 1-1
+make fmt-levels # 规整所有内置关卡的排版
+make e2e      # 用无头 Chrome 跑编辑器的浏览器测试（需要 Chrome 和 Node）
 ```
 
 测试覆盖的重点：

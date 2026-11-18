@@ -6,6 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
+	"super-mario/pkg/catalog"
 	"super-mario/pkg/engine"
 	"super-mario/pkg/render"
 	"super-mario/pkg/save"
@@ -21,6 +22,8 @@ const (
 	pageBoard
 	// pageHelp is the controls reference.
 	pageHelp
+	// pageLevels is the level select list.
+	pageLevels
 )
 
 // titleState is everything the title screen remembers.
@@ -28,6 +31,7 @@ type titleState struct {
 	page   titlePage
 	menu   *pauseMenu
 	justAt int // rank of the run that was just recorded, 0 for none
+	levels *levelsState
 }
 
 // newTitleState builds the main menu.
@@ -36,6 +40,8 @@ func newTitleState(a *App) *titleState {
 		page: pageMenu,
 		menu: &pauseMenu{items: []menuItem{
 			{"开始游戏", func(a *App) { a.startSelectedLevel() }},
+			{"选择关卡", func(a *App) { a.openLevelSelect() }},
+			{"设计关卡", func(a *App) { a.openEditor() }},
 			{"排行榜", func(a *App) { a.openTitlePage(pageBoard) }},
 			{"操作说明", func(a *App) { a.openTitlePage(pageHelp) }},
 			{"退出", func(a *App) { a.quit = true }},
@@ -43,12 +49,19 @@ func newTitleState(a *App) *titleState {
 	}
 }
 
-// startSelectedLevel begins a run on the chosen level.
-//
-// There is one level today, so this just starts it. It is a separate function
-// so that a level-select screen only has to change what calls it: the menu
-// entry, the key binding and the restart path all go through here.
-func (a *App) startSelectedLevel() { a.startRun() }
+// startSelectedLevel begins a run of 1-1 from the main menu: "start game"
+// always means the first level (spec level-select / 开始游戏不变). A level
+// given with -level on the command line is played instead.
+func (a *App) startSelectedLevel() {
+	if a.opts.LevelPath == "" {
+		if err := a.switchLevel(catalog.Builtin, "1-1"); err != nil {
+			a.notice = err.Error()
+			return
+		}
+	}
+	a.fromSelect = false
+	a.startRun()
+}
 
 // openTitlePage switches the title area to another page.
 func (a *App) openTitlePage(p titlePage) {
@@ -67,6 +80,11 @@ func (a *App) backToMenu() { a.openTitlePage(pageMenu) }
 func (a *App) handleTitleKey(e *tcell.EventKey) {
 	if a.title == nil {
 		a.title = newTitleState(a)
+	}
+	// The level list has its own keys.
+	if a.title.page == pageLevels && a.title.levels != nil {
+		a.handleLevelsKey(e)
+		return
 	}
 	// Sub-pages only have one way out.
 	if a.title.page != pageMenu {
@@ -122,6 +140,12 @@ func (a *App) drawTitleScreen(w, h int) {
 		a.drawBoard(w, h)
 	case pageHelp:
 		a.drawHelp(w, h)
+	case pageLevels:
+		if a.title.levels != nil {
+			a.drawLevels(w, h)
+			return
+		}
+		a.drawMainMenu(w, h)
 	default:
 		a.drawMainMenu(w, h)
 	}
@@ -400,7 +424,7 @@ func (a *App) recordRun(cleared bool) int {
 	}
 	prevBest, hadBest := a.board.Best()
 
-	e := save.NewEntry(score, a.world.RunSteps(), a.lv.World, cleared)
+	e := save.NewEntry(score, a.world.RunSteps(), a.levelKey, cleared)
 	rank := a.board.Add(e)
 	a.store.Save(a.board)
 
@@ -410,13 +434,20 @@ func (a *App) recordRun(cleared bool) int {
 }
 
 // leaveRun returns to the title screen after a run, landing on the board when
-// the run placed so the player sees where they stand.
+// the run placed so the player sees where they stand. A run started from the
+// level list goes back to the list instead, with that level highlighted (spec
+// level-select / 选择与返回).
 func (a *App) leaveRun(rank int) {
 	a.sm.ToTitle()
 	a.menu = nil
 	a.input.ReleaseAll()
 	a.heldAt = map[engine.Key]timeStamp{}
 	a.title = newTitleState(a)
+	if a.fromSelect {
+		a.openLevelSelect()
+		a.invalidateFrame()
+		return
+	}
 	if rank > 0 {
 		a.title.page = pageBoard
 		a.title.justAt = rank

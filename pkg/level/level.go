@@ -7,8 +7,8 @@ package level
 
 import (
 	"embed"
-	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 
@@ -84,7 +84,29 @@ const (
 	BlockOneUp    BlockKind = "oneup"    // green: extra life
 	BlockPoison   BlockKind = "poison"   // purple: hurts
 	BlockGold     BlockKind = "gold"     // gold: five coins
+	// BlockRandom is not something a block dispenses: it says the block draws
+	// one of its Pool at the start of each life (spec random-block-content).
+	BlockRandom BlockKind = "random"
 )
+
+// Concrete reports whether k is something a block can actually dispense.
+func (k BlockKind) Concrete() bool {
+	switch k {
+	case BlockCoin, BlockMushroom, BlockStar, BlockOneUp, BlockPoison, BlockGold:
+		return true
+	}
+	return false
+}
+
+// ConcreteKinds lists every dispensable kind, in the order the editor shows
+// them.
+var ConcreteKinds = []BlockKind{BlockCoin, BlockMushroom, BlockStar, BlockOneUp, BlockPoison, BlockGold}
+
+// Choice is one entry of a random block's pool.
+type Choice struct {
+	Kind   BlockKind
+	Weight int
+}
 
 // Content describes a block's payload, fixed at authoring time so a given block
 // always yields the same thing (spec blocks-and-items / 问号块).
@@ -93,6 +115,11 @@ type Content struct {
 	Kind   BlockKind
 	Count  int  // remaining uses; a coin brick may hold several
 	Hidden bool // invisible until bumped
+	// Random is set for a block whose Kind is drawn from Pool at the start of
+	// each life. While the level is being played Kind holds this life's draw;
+	// Restore puts it back to BlockRandom.
+	Random bool
+	Pool   []Choice
 }
 
 // Spawn is an entity placed at level load.
@@ -101,10 +128,32 @@ type Spawn struct {
 	X, Y int
 }
 
+// Meta is a level's optional description, shown in level select and kept for
+// contribution records (spec level-contribution / 关卡元信息).
+type Meta struct {
+	Title       string
+	Author      string
+	Description string
+	// Difficulty is 1 to 5, or 0 when the author did not say.
+	Difficulty int
+}
+
+// Length limits for the meta fields, counted in runes so a Chinese title gets
+// the same room as an English one.
+const (
+	MaxTitleLen       = 32
+	MaxAuthorLen      = 24
+	MaxDescriptionLen = 140
+	MaxDifficulty     = 5
+)
+
 // Level is a parsed, validated level.
 type Level struct {
-	Name      string
-	World     string
+	Name  string
+	World string
+	Meta  Meta
+	// Style is the level's appearance; zero means the game's default look.
+	Style     Style
 	Width     int
 	Height    int
 	TimeLimit int
@@ -127,6 +176,7 @@ type Level struct {
 
 // Restore puts every tile and block payload back the way the level was
 // loaded. It is what a respawn uses, so the level is the same on every life.
+// A random block goes back to undrawn; the world draws it again.
 func (l *Level) Restore() {
 	if l.pristine == nil {
 		return
@@ -176,17 +226,28 @@ func (l *Level) ContentAt(x, y int) (int, bool) {
 
 // file is the on-disk shape.
 type file struct {
-	Name      string    `json:"name"`
-	World     string    `json:"world"`
-	Width     int       `json:"width"`
-	Height    int       `json:"height"`
-	TimeLimit int       `json:"timeLimit"`
-	Spawn     point     `json:"spawn"`
-	Flag      flagSpec  `json:"flag"`
-	Rows      []string  `json:"rows"`
-	Contents  []content `json:"contents"`
-	Entities  []entity  `json:"entities"`
+	Name      string     `json:"name"`
+	World     string     `json:"world"`
+	Width     int        `json:"width"`
+	Height    int        `json:"height"`
+	TimeLimit int        `json:"timeLimit"`
+	Meta      *metaSpec  `json:"meta,omitempty"`
+	Style     *styleSpec `json:"style,omitempty"`
+	Spawn     point      `json:"spawn"`
+	Flag      flagSpec   `json:"flag"`
+	Rows      []string   `json:"rows"`
+	Contents  []content  `json:"contents"`
+	Entities  []entity   `json:"entities"`
 }
+
+type metaSpec struct {
+	Title       string `json:"title,omitempty"`
+	Author      string `json:"author,omitempty"`
+	Description string `json:"description,omitempty"`
+	Difficulty  int    `json:"difficulty,omitempty"`
+}
+
+func (m *metaSpec) empty() bool { return m == nil || *m == metaSpec{} }
 
 type point struct {
 	X int `json:"x"`
@@ -200,11 +261,18 @@ type flagSpec struct {
 }
 
 type content struct {
-	X      int    `json:"x"`
-	Y      int    `json:"y"`
+	X      int          `json:"x"`
+	Y      int          `json:"y"`
+	Kind   string       `json:"kind"`
+	Count  int          `json:"count"`
+	Hidden bool         `json:"hidden"`
+	Pool   []choiceSpec `json:"pool,omitempty"`
+}
+
+// choiceSpec is one pool entry: {"kind": "mushroom", "w": 3}.
+type choiceSpec struct {
 	Kind   string `json:"kind"`
-	Count  int    `json:"count"`
-	Hidden bool   `json:"hidden"`
+	Weight int    `json:"w"`
 }
 
 type entity struct {
@@ -231,6 +299,16 @@ func LoadEmbedded(name string) (*Level, error) {
 	return Parse(data)
 }
 
+// Embedded is the compiled-in level directory, for tools that list or read the
+// built-in levels as files (the editor's "open" list).
+func Embedded() fs.FS {
+	sub, err := fs.Sub(assets, "data")
+	if err != nil {
+		panic(err) // the directory is embedded; this cannot fail
+	}
+	return sub
+}
+
 // EmbeddedNames lists the compiled-in levels.
 func EmbeddedNames() ([]string, error) {
 	entries, err := assets.ReadDir("data")
@@ -250,38 +328,109 @@ func EmbeddedNames() ([]string, error) {
 //
 // Every rejection names the row and column so a mistyped level file is a
 // two-second fix rather than a mystery (spec level-1-1 / 非法数据给出明确错误).
+// When a level has several problems Parse reports the first; Check lists them
+// all.
 func Parse(data []byte) (*Level, error) {
-	var f file
-	dec := json.NewDecoder(strings.NewReader(string(data)))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&f); err != nil {
-		return nil, fmt.Errorf("parse level json: %w", err)
+	f, err := decode(data)
+	if err != nil {
+		return nil, err
 	}
-	return validate(&f)
+	return validate(f)
+}
+
+// Problem is one reason a level cannot be loaded. X and Y are the cell it is
+// about, or -1 when it is about the level as a whole.
+type Problem struct {
+	Code    string
+	X, Y    int
+	Message string
+	// Args are the values in the message, by name, so the editor can say
+	// the same thing in another language.
+	Args map[string]string
+}
+
+func (p Problem) Error() string { return p.Message }
+
+// Check lists every reason the level in data cannot be loaded, in the order
+// the file declares things. An empty result means Parse accepts it. This is
+// the single source the editor's error list, the game's loader and the
+// repository test all draw on (spec level-contribution / 单一校验来源).
+func Check(data []byte) []Problem {
+	f, err := decode(data)
+	if err != nil {
+		return []Problem{{Code: "json", X: -1, Y: -1, Message: err.Error()}}
+	}
+	_, probs := build(f)
+	return probs
 }
 
 func validate(f *file) (*Level, error) {
+	l, probs := build(f)
+	if len(probs) > 0 {
+		return nil, probs[0]
+	}
+	return l, nil
+}
+
+// build checks a decoded file and, when it is sound, builds the level. It keeps
+// going after a problem wherever the rest can still be judged, so one save in
+// the editor reports everything wrong at once; it stops early only when the
+// grid itself is unusable.
+func build(f *file) (*Level, []Problem) {
+	var probs []Problem
+	add := func(code string, x, y int, format string, args ...interface{}) {
+		probs = append(probs, Problem{Code: code, X: x, Y: y, Message: fmt.Sprintf(format, args...)})
+	}
+	// with names the values of the problem just added.
+	with := func(kv ...interface{}) {
+		p := &probs[len(probs)-1]
+		p.Args = map[string]string{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			p.Args[kv[i].(string)] = fmt.Sprint(kv[i+1])
+		}
+	}
+
 	if f.Width <= 0 || f.Height <= 0 {
-		return nil, fmt.Errorf("level width and height must be positive (got %dx%d)", f.Width, f.Height)
+		add("size", -1, -1, "level width and height must be positive (got %dx%d)", f.Width, f.Height)
+		with("w", f.Width, "h", f.Height)
+		return nil, probs
 	}
 	if len(f.Rows) != f.Height {
-		return nil, fmt.Errorf("level declares height %d but has %d rows", f.Height, len(f.Rows))
+		add("rows", -1, -1, "level declares height %d but has %d rows", f.Height, len(f.Rows))
+		with("h", f.Height, "n", len(f.Rows))
+		return nil, probs
 	}
 	if f.Spawn.X < 0 || f.Spawn.X >= f.Width || f.Spawn.Y < 0 || f.Spawn.Y >= f.Height {
-		return nil, fmt.Errorf("spawn point (%d,%d) is outside the level %dx%d",
+		add("spawn", -1, -1, "spawn point (%d,%d) is outside the level %dx%d",
 			f.Spawn.X, f.Spawn.Y, f.Width, f.Height)
+		with("x", f.Spawn.X, "y", f.Spawn.Y)
 	}
 	if f.Flag.X < 0 || f.Flag.X >= f.Width {
-		return nil, fmt.Errorf("flagpole x=%d is outside the level width %d", f.Flag.X, f.Width)
+		add("flag-x", -1, -1, "flagpole x=%d is outside the level width %d", f.Flag.X, f.Width)
+		with("x", f.Flag.X)
 	}
 	if f.Flag.TopY < 0 || f.Flag.BottomY >= f.Height || f.Flag.TopY > f.Flag.BottomY {
-		return nil, fmt.Errorf("flagpole rows %d..%d are invalid for height %d",
+		add("flag", f.Flag.X, -1, "flagpole rows %d..%d are invalid for height %d",
 			f.Flag.TopY, f.Flag.BottomY, f.Height)
+		with("top", f.Flag.TopY, "bottom", f.Flag.BottomY)
+	}
+
+	meta, err := validateMeta(f.Meta)
+	if err != nil {
+		add("meta", -1, -1, "%s", err.Error())
+		with("detail", err.Error())
+	}
+	style, err := validateStyle(f.Style)
+	if err != nil {
+		add("style", -1, -1, "%s", err.Error())
+		with("detail", err.Error())
 	}
 
 	l := &Level{
 		Name:      f.Name,
 		World:     f.World,
+		Meta:      meta,
+		Style:     style,
 		Width:     f.Width,
 		Height:    f.Height,
 		TimeLimit: f.TimeLimit,
@@ -296,15 +445,28 @@ func validate(f *file) (*Level, error) {
 		l.TimeLimit = 400
 	}
 
+	gridOK := true
+	// declared marks every cell a content entry names, valid or not, so a
+	// block whose entry was rejected above is not also reported as having no
+	// entry at all.
+	declared := map[[2]int]bool{}
+	for _, c := range f.Contents {
+		declared[[2]int{c.X, c.Y}] = true
+	}
 	for y, row := range f.Rows {
 		runes := []rune(row)
 		if len(runes) != f.Width {
-			return nil, fmt.Errorf("row %d has %d columns, want %d", y, len(runes), f.Width)
+			add("row-width", -1, y, "row %d has %d columns, want %d", y, len(runes), f.Width)
+			with("row", y, "n", len(runes), "want", f.Width)
+			gridOK = false
+			continue
 		}
 		for x, ch := range runes {
 			kind, ok := symbolTable[ch]
 			if !ok {
-				return nil, fmt.Errorf("row %d col %d: unknown tile symbol %q", y, x, string(ch))
+				add("symbol", x, y, "row %d col %d: unknown tile symbol %q", y, x, string(ch))
+				with("symbol", string(ch))
+				kind = KindEmpty
 			}
 			l.tiles[y*f.Width+x] = Tile{Kind: kind, Glyph: ch}
 		}
@@ -312,42 +474,61 @@ func validate(f *file) (*Level, error) {
 
 	for i, c := range f.Contents {
 		if c.X < 0 || c.X >= f.Width || c.Y < 0 || c.Y >= f.Height {
-			return nil, fmt.Errorf("contents[%d]: block (%d,%d) is outside the level", i, c.X, c.Y)
+			add("block-outside", -1, -1, "contents[%d]: block (%d,%d) is outside the level", i, c.X, c.Y)
+			with("x", c.X, "y", c.Y)
+			continue
 		}
-		switch BlockKind(c.Kind) {
-		case BlockCoin, BlockMushroom, BlockStar, BlockOneUp, BlockPoison, BlockGold:
-		default:
-			return nil, fmt.Errorf("contents[%d]: unknown block kind %q", i, c.Kind)
+		kind := BlockKind(c.Kind)
+		if !kind.Concrete() && kind != BlockRandom {
+			add("block-kind", c.X, c.Y, "contents[%d]: unknown block kind %q", i, c.Kind)
+			with("kind", c.Kind)
+			continue
+		}
+		pool, err := validatePool(i, c)
+		if err != nil {
+			add("block-pool", c.X, c.Y, "%s", err.Error())
+			with("detail", err.Error())
+			continue
 		}
 		count := c.Count
 		if count <= 0 {
 			count = 1
 		}
 		l.Contents = append(l.Contents, Content{
-			X: c.X, Y: c.Y, Kind: BlockKind(c.Kind), Count: count, Hidden: c.Hidden,
+			X: c.X, Y: c.Y, Kind: kind, Count: count, Hidden: c.Hidden,
+			Random: kind == BlockRandom, Pool: pool,
 		})
+		if !gridOK {
+			continue
+		}
 		// A visible block must actually be a question tile; a hidden one sits in air.
 		t := l.TileAt(c.X, c.Y)
 		if c.Hidden {
 			// hidden blocks are solid only once revealed; keep the air there
 			if t.Kind != KindEmpty {
-				return nil, fmt.Errorf("contents[%d]: hidden block at (%d,%d) must be placed in empty air, found %q",
+				add("hidden-solid", c.X, c.Y, "contents[%d]: hidden block at (%d,%d) must be placed in empty air, found %q",
 					i, c.X, c.Y, string(t.Glyph))
+				with("symbol", string(t.Glyph))
 			}
 		} else if t.Kind != KindQuestion && t.Kind != KindBreakable {
-			return nil, fmt.Errorf("contents[%d]: block at (%d,%d) is %q, not a question or brick tile",
+			add("block-tile", c.X, c.Y, "contents[%d]: block at (%d,%d) is %q, not a question or brick tile",
 				i, c.X, c.Y, string(t.Glyph))
+			with("symbol", string(t.Glyph))
 		}
 	}
 
 	for i, e := range f.Entities {
 		if e.X < 0 || e.X >= f.Width || e.Y < 0 || e.Y >= f.Height {
-			return nil, fmt.Errorf("entities[%d]: (%d,%d) is outside the level", i, e.X, e.Y)
+			add("entity-outside", -1, -1, "entities[%d]: (%d,%d) is outside the level", i, e.X, e.Y)
+			with("x", e.X, "y", e.Y)
+			continue
 		}
 		switch e.Kind {
 		case "goomba", "koopa":
 		default:
-			return nil, fmt.Errorf("entities[%d]: unknown entity kind %q", i, e.Kind)
+			add("entity-kind", e.X, e.Y, "entities[%d]: unknown entity kind %q", i, e.Kind)
+			with("kind", e.Kind)
+			continue
 		}
 		l.Spawns = append(l.Spawns, Spawn{Kind: e.Kind, X: e.X, Y: e.Y})
 	}
@@ -355,19 +536,87 @@ func validate(f *file) (*Level, error) {
 	// Every visible question block must declare what it dispenses. Without
 	// this, a missing entry turns into a block that silently does nothing,
 	// which is the hardest kind of authoring bug to notice.
-	for y := 0; y < l.Height; y++ {
-		for x := 0; x < l.Width; x++ {
-			if l.TileAt(x, y).Kind != KindQuestion {
-				continue
-			}
-			if _, ok := l.ContentAt(x, y); !ok {
-				return nil, fmt.Errorf("row %d col %d: question block has no content entry", y, x)
+	if gridOK {
+		for y := 0; y < l.Height; y++ {
+			for x := 0; x < l.Width; x++ {
+				if l.TileAt(x, y).Kind != KindQuestion || declared[[2]int{x, y}] {
+					continue
+				}
+				if _, ok := l.ContentAt(x, y); !ok {
+					add("block-empty", x, y, "row %d col %d: question block has no content entry", y, x)
+				}
 			}
 		}
 	}
 
+	if len(probs) > 0 {
+		return nil, probs
+	}
 	l.snapshot()
 	return l, nil
+}
+
+// validatePool checks a block's random pool. A random block must have one with
+// a positive total weight; any other block must not have one, since a pool on a
+// fixed block would be silently ignored.
+func validatePool(i int, c content) ([]Choice, error) {
+	if BlockKind(c.Kind) != BlockRandom {
+		if len(c.Pool) > 0 {
+			return nil, fmt.Errorf("contents[%d]: block (%d,%d) has a pool but its kind is %q, not \"random\"", i, c.X, c.Y, c.Kind)
+		}
+		return nil, nil
+	}
+	if len(c.Pool) == 0 {
+		return nil, fmt.Errorf("contents[%d]: random block (%d,%d) has an empty pool", i, c.X, c.Y)
+	}
+	total := 0
+	seen := map[BlockKind]bool{}
+	out := make([]Choice, 0, len(c.Pool))
+	for j, ch := range c.Pool {
+		k := BlockKind(ch.Kind)
+		if !k.Concrete() {
+			return nil, fmt.Errorf("contents[%d]: random block (%d,%d) pool[%d] has unknown kind %q", i, c.X, c.Y, j, ch.Kind)
+		}
+		if ch.Weight < 0 {
+			return nil, fmt.Errorf("contents[%d]: random block (%d,%d) pool[%d] has negative weight %d", i, c.X, c.Y, j, ch.Weight)
+		}
+		if seen[k] {
+			return nil, fmt.Errorf("contents[%d]: random block (%d,%d) lists %q twice", i, c.X, c.Y, ch.Kind)
+		}
+		seen[k] = true
+		total += ch.Weight
+		out = append(out, Choice{Kind: k, Weight: ch.Weight})
+	}
+	if total == 0 {
+		return nil, fmt.Errorf("contents[%d]: random block (%d,%d) has weights that add up to 0", i, c.X, c.Y)
+	}
+	return out, nil
+}
+
+// validateMeta checks the optional description block. A level without one is
+// fine; a level with one must keep each field within its limit.
+func validateMeta(m *metaSpec) (Meta, error) {
+	if m == nil {
+		return Meta{}, nil
+	}
+	limits := []struct {
+		field string
+		value string
+		max   int
+	}{
+		{"title", m.Title, MaxTitleLen},
+		{"author", m.Author, MaxAuthorLen},
+		{"description", m.Description, MaxDescriptionLen},
+	}
+	for _, f := range limits {
+		if n := len([]rune(f.value)); n > f.max {
+			return Meta{}, fmt.Errorf("meta.%s is %d characters long, the limit is %d", f.field, n, f.max)
+		}
+	}
+	if m.Difficulty < 0 || m.Difficulty > MaxDifficulty {
+		return Meta{}, fmt.Errorf("meta.difficulty is %d, it must be between 1 and %d", m.Difficulty, MaxDifficulty)
+	}
+	return Meta{Title: m.Title, Author: m.Author, Description: m.Description, Difficulty: m.Difficulty}, nil
 }
 
 // TileRect returns the world-space rectangle of a cell.

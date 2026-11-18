@@ -48,11 +48,21 @@ func (s *Scene) paintSky(c *Canvas, w *game.World, camY, colsPerTile int) {
 	if s.Transparent {
 		return
 	}
+	levelH := w.Level.Height * colsPerTile
 	if !s.Fill.Gradient() {
-		c.Clear(s.T.Sky)
+		for y := 0; y < c.H; y++ {
+			col := s.T.Sky
+			// Rows that fall below the level's bottom edge show the ground
+			// colour; otherwise a tall viewport looks like the ground is missing.
+			if levelH > 0 && camY+y >= levelH {
+				col = s.T.Ground
+			}
+			for x := 0; x < c.W; x++ {
+				c.Px[y*c.W+x] = col
+			}
+		}
 		return
 	}
-	levelH := w.Level.Height * colsPerTile
 	if levelH <= 1 {
 		c.Clear(s.Fill.Bottom)
 		return
@@ -60,10 +70,15 @@ func (s *Scene) paintSky(c *Canvas, w *game.World, camY, colsPerTile int) {
 	var prev interface{}
 	var prevRow int = -1
 	for y := 0; y < c.H; y++ {
-		f := float64(camY+y) / float64(levelH-1)
-		col := s.Fill.At(f)
+		var col interface{}
+		if camY+y >= levelH {
+			// Below the level: fill with the ground colour so the earth
+			// continues rather than showing more sky.
+			col = s.T.Ground
+		} else {
+			col = s.Fill.At(float64(camY+y) / float64(levelH-1))
+		}
 		if prevRow >= 0 && col == prev {
-			// Same colour as the row above: copy it rather than recompute.
 			copy(c.Px[y*c.W:(y+1)*c.W], c.Px[prevRow*c.W:(prevRow+1)*c.W])
 			continue
 		}

@@ -831,7 +831,7 @@ func (w *World) updateCamera(force bool) {
 	// be negative (we see sky above the level top), which is fine.
 	if w.ViewH >= lvH {
 		// 618/1000 ≈ 1/φ
-		targetY = lvH - w.ViewH*618/1000
+		targetY = lvH - w.ViewH*900/1000
 	} else if targetY < 0 {
 		targetY = 0
 	}

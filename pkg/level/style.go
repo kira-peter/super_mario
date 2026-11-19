@@ -181,6 +181,28 @@ func findSky(id string) (Sky, bool) {
 	return Sky{}, false
 }
 
+// nightSkies are the skies that mean night: the "night" and "starry" presets
+// (the night theme uses the starry one). Underground and lava are dark too, but
+// they are not night, and get no stars.
+var nightSkies = []string{"night", "starry"}
+
+// Night reports whether the level is set at night, so the renderer adds stars.
+// It is: the night theme with its own sky, or a night or starry sky chosen
+// directly. A custom colour is not night, however dark, so a level never gains
+// stars it did not ask for.
+func (s Style) Night() bool {
+	r := s.Resolved()
+	if r.Sky == nil {
+		return false
+	}
+	for _, id := range nightSkies {
+		if sky, ok := findSky(id); ok && sky == *r.Sky {
+			return true
+		}
+	}
+	return false
+}
+
 // --- on-disk shape -------------------------------------------------------
 
 // styleSpec is "style" as written in a level file. Colours are kept as the

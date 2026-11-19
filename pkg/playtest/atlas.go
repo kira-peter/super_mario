@@ -203,6 +203,58 @@ func SkyColours(style level.Style, zoom int) []string {
 	return out
 }
 
+// SkyFrame draws a whole level's sky, with its stars, and nothing else: every
+// tile emptied and the player hidden. Tests compare it with the editor's star
+// list.
+func SkyFrame(lv *level.Level, zoom int) Frame {
+	for y := 0; y < lv.Height; y++ {
+		for x := 0; x < lv.Width; x++ {
+			lv.SetTile(x, y, level.Tile{Kind: level.KindEmpty, Glyph: ' '})
+		}
+	}
+	lv.Contents = nil
+	lv.Spawns = nil
+	sm := engine.NewStateMachine()
+	sm.StartRun()
+	w := game.NewWorld(lv, &game.Default, sm, 3)
+	w.Player.Hidden = true
+	w.SetViewport(engine.Tile*engine.Fixed(lv.Width), engine.Tile*engine.Fixed(lv.Height))
+	w.CameraX, w.CameraY = 0, 0
+	sc := render.ForLevel(theme.Ink, "ink", lv, theme.TrueColor)
+	c := sc.Draw(w, zoom)
+	return Frame{W: c.W, H: c.H, RGBA: ToRGBA(c, sc.T.Sky)}
+}
+
+// EditorStar is one star for the editor's canvas: its position in pixels of the
+// four-pixel-tile drawing, and its colour at the step asked for ("" while the
+// star is out for a moment of its twinkle).
+type EditorStar struct {
+	X, Y  int
+	Color string
+	Cross bool
+}
+
+// Stars lists the stars a level at night shows, coloured as the game draws them
+// at a simulation step, so the editor's canvas twinkles exactly like the
+// playtest. Empty for any other sky.
+func Stars(style level.Style, width, height, step int) []EditorStar {
+	sc := render.ForLevel(theme.Ink, "ink", &level.Level{Style: style}, theme.TrueColor)
+	fill := sc.Fill
+	if !fill.Gradient() && fill.Top == 0 {
+		fill = theme.SkyFill{Top: theme.Ink.Sky, Bottom: theme.Ink.Sky}
+	}
+	out := []EditorStar{}
+	for _, s := range render.StarField(style, width, height, fill.At) {
+		e := EditorStar{X: s.X, Y: s.Y, Cross: s.Cross}
+		if c, lit := sc.Twinkle(s, step); lit {
+			r, g, b := c.RGB()
+			e.Color = hex(r, g, b)
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
 func hex(r, g, b int32) string {
 	const d = "0123456789abcdef"
 	return string([]byte{'#', d[r>>4], d[r&15], d[g>>4], d[g&15], d[b>>4], d[b&15]})

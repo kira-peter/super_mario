@@ -27,6 +27,8 @@ type Scene struct {
 	// cut from scenes drawn this way, so each element looks exactly as the
 	// game draws it.
 	Transparent bool
+	// Stars puts a star field on the sky: set for a level at night.
+	Stars bool
 }
 
 // ForLevel returns a scene for a level: the theme with the level's own colours
@@ -37,7 +39,7 @@ func ForLevel(base theme.Tokens, themeName string, lv *level.Level, c theme.Capa
 	if !fill.Gradient() && fill.Top == base.Sky {
 		fill = theme.SkyFill{}
 	}
-	return Scene{T: t, Theme: themeName, Fill: fill}
+	return Scene{T: t, Theme: themeName, Fill: fill, Stars: lv.Style.Night()}
 }
 
 // paintSky fills the canvas with the sky. A gradient runs from the top of the
@@ -142,6 +144,7 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 	d := drawer{c: c, s: s, px: colsPerTile, set: set,
 		camX: camX, camY: camY, artW: artW, artH: artH}
 
+	d.stars(w)
 	d.clouds(w)
 	d.terrain(w)
 	d.castle(w)

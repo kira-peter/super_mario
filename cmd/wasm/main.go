@@ -27,6 +27,7 @@ func main() {
 	api.Set("format", js.FuncOf(format))
 	api.Set("sprites", js.FuncOf(sprites))
 	api.Set("sky", js.FuncOf(sky))
+	api.Set("stars", js.FuncOf(stars))
 	api.Set("themePreview", js.FuncOf(themePreview))
 	api.Set("palettes", js.FuncOf(palettes))
 	api.Set("drawRandom", js.FuncOf(drawRandom))
@@ -102,6 +103,33 @@ func sprites(_ js.Value, args []js.Value) interface{} {
 // sky(levelJSON, zoom) -> JSON array of #rrggbb, one per art row
 func sky(_ js.Value, args []js.Value) interface{} {
 	return jsonOut(playtest.SkyColours(styleOf(args[0].String()), args[1].Int()))
+}
+
+// starLevel caches the last level stars() parsed: the editor asks for the same
+// level's stars many times a second while they twinkle.
+var starLevel struct {
+	json string
+	lv   *level.Level
+}
+
+// stars(levelJSON, step) -> [{X, Y, Color, Cross}] in four-pixel-tile art
+// pixels, coloured for that moment of the twinkle; empty unless the level is
+// set at night.
+func stars(_ js.Value, args []js.Value) interface{} {
+	src := args[0].String()
+	if src != starLevel.json {
+		lv, err := level.Parse([]byte(src))
+		if err != nil {
+			return jsonOut([]playtest.EditorStar{})
+		}
+		starLevel.json, starLevel.lv = src, lv
+	}
+	lv := starLevel.lv
+	step := 0
+	if len(args) > 1 {
+		step = args[1].Int()
+	}
+	return jsonOut(playtest.Stars(lv.Style, lv.Width, lv.Height, step))
 }
 
 // themePreview(themeID, zoom) -> {w, h, rgba}

@@ -265,9 +265,35 @@ function refreshStyle() {
     S.sprites.set(sp.id, { canvas: c, ox: sp.ox, oy: sp.oy, w: sp.w, h: sp.h });
   }
   S.sky = JSON.parse(mario.sky(file, ART));
+  // Stars, for a level at night: the game's own field, drawn over the sky.
+  S.starFile = file;
+  S.stars = JSON.parse(mario.stars(file, starStep()) || '[]') || [];
+  twinkleStars();
   miniColours.cache = null;
   paintPaletteIcons();
   syncLook();
+}
+
+/** The game's simulation step for "now", at 60 steps a second, so the canvas
+ * twinkles at the game's pace. */
+function starStep() { return Math.floor(performance.now() * 60 / 1000); }
+
+/** Keep a night sky twinkling: ask the game for the stars' colours at the
+ * current step about thirty times a second, and repaint when any changed. The
+ * loop stops by itself when the level is no longer at night, and does nothing
+ * while a playtest is on (the playtest draws its own frames). */
+function twinkleStars() {
+  if (twinkleStars.timer || !S.stars || !S.stars.length) return;
+  twinkleStars.timer = setInterval(() => {
+    if (!S.stars || !S.stars.length) {
+      clearInterval(twinkleStars.timer); twinkleStars.timer = 0; return;
+    }
+    if (S.playing || document.hidden) return;
+    const next = JSON.parse(mario.stars(S.starFile, starStep()) || '[]') || [];
+    const changed = next.length !== S.stars.length || next.some((s, i) => s.Color !== S.stars[i].Color);
+    S.stars = next;
+    if (changed) draw();
+  }, 33);
 }
 
 /** Draw a sprite into a small canvas (palette icons, property panel). */
@@ -381,6 +407,19 @@ function paint() {
     if (y > H || y + rowH < 0) continue;
     ctx.fillStyle = S.sky[r];
     ctx.fillRect(Math.max(0, lx), Math.floor(y), Math.min(W, rx) - Math.max(0, lx), Math.ceil(rowH) + 1);
+  }
+
+  // Stars on a night sky, where the game puts them and twinkling by the same
+  // rule (see twinkleStars). One art pixel each, so they scale with the zoom.
+  if (S.stars && S.stars.length) {
+    const px = Math.max(1, Math.round(rowH));
+    for (const s of S.stars) {
+      if (!s.Color) continue; // out for a moment
+      const sx = (s.X / ART - S.view.x) * sc, sy = (s.Y / ART - S.view.y) * sc;
+      if (sx < -px || sx > W || sy < -px || sy > H) continue;
+      ctx.fillStyle = s.Color;
+      ctx.fillRect(Math.round(sx), Math.round(sy), px, px);
+    }
   }
 
   const x0 = Math.max(0, Math.floor(S.view.x)), x1 = Math.min(lv.width - 1, Math.ceil(S.view.x + W / sc));

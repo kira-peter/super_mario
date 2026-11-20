@@ -8,7 +8,10 @@ GOROOT := $(shell go env GOROOT)
 # VERSIONING.md. The commit is what git says, when git is available. Both are
 # compiled in with -ldflags, so the binary knows what it is; a plain `go build`
 # without the Makefile reports pkg/version.Default instead.
-VERSION := $(shell cat VERSION 2>/dev/null)
+# tr strips any carriage return a CRLF checkout would leave (\015 is CR,
+# written as an escape so this file holds no raw control character); $(strip)
+# drops the newline. .gitattributes keeps the file LF regardless.
+VERSION := $(strip $(shell tr -d '\015' < VERSION))
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
 LDFLAGS := -X super-mario/pkg/version.Number=$(VERSION) -X super-mario/pkg/version.Commit=$(COMMIT)
 

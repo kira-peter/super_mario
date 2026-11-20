@@ -8,3 +8,7 @@ pkg/editor/web/*.js   text eol=lf
 pkg/editor/web/*.mjs  text eol=lf
 pkg/editor/web/*.html text eol=lf
 pkg/editor/web/*.css  text eol=lf
+
+# The Makefile reads VERSION with `cat` and compiles it into the binary. A CRLF
+# checkout would leave a carriage return on the end of the version number.
+VERSION text eol=lf

@@ -16,6 +16,9 @@ func TestVERSIONFile(t *testing.T) {
 	if err != nil {
 		t.Skip("VERSION file not found")
 	}
+	if strings.Contains(string(data), "\r") {
+		t.Error("VERSION has CRLF line endings; .gitattributes keeps it LF, re-check it out")
+	}
 	got := strings.TrimSpace(string(data))
 	if _, err := Parse(got); err != nil {
 		t.Fatalf("VERSION holds %q: %v", got, err)

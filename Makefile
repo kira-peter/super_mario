@@ -4,11 +4,19 @@ BIN := build/super-mario.exe
 WEB := pkg/editor/web
 GOROOT := $(shell go env GOROOT)
 
+# The version comes from the VERSION file, the one thing a release edits; see
+# VERSIONING.md. The commit is what git says, when git is available. Both are
+# compiled in with -ldflags, so the binary knows what it is; a plain `go build`
+# without the Makefile reports pkg/version.Default instead.
+VERSION := $(shell cat VERSION 2>/dev/null)
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
+LDFLAGS := -X super-mario/pkg/version.Number=$(VERSION) -X super-mario/pkg/version.Commit=$(COMMIT)
+
 # The editor runs the game's own Go code in the browser. Its WebAssembly build
 # and the matching wasm_exec.js are generated, not committed, and embedded into
 # the game binary, so build the wasm first.
 build: wasm
-	go build -o $(BIN) ./cmd/super-mario
+	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/super-mario
 
 wasm:
 	GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o $(WEB)/editor.wasm ./cmd/wasm

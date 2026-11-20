@@ -4,6 +4,7 @@
 //
 //	super-mario edit [--port N] [--dir D] [level]   open the level editor in a browser
 //	super-mario fmt-levels [-check] [dir]           rewrite level files in the canonical layout
+//	super-mario version                             print the version and exit
 package main
 
 import (
@@ -20,6 +21,7 @@ import (
 	"super-mario/pkg/app"
 	"super-mario/pkg/catalog"
 	"super-mario/pkg/editor"
+	"super-mario/pkg/version"
 )
 
 // builtinLevelDir is where the compiled-in levels live, relative to the
@@ -29,6 +31,9 @@ const builtinLevelDir = catalog.RepoLevelDir
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "version", "-version", "--version":
+			fmt.Println(version.String())
+			return
 		case "fmt-levels":
 			os.Exit(runFmtLevels(os.Args[2:]))
 		case "edit":

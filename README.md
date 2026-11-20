@@ -54,6 +54,7 @@ go run ./cmd/super-mario
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
+| `version` | | 子命令：打印版本号（如 `v1.0.0 (a1b2c3d)`）并退出 |
 | `-level` | 空 | 关卡 JSON 路径；留空使用内置 1-1 |
 | `-theme` | `ink` | `ink`（深色）或 `paper`（浅色） |
 | `-scale` | `auto` | `tiny`（4 像素/瓦片，默认）/ `wide`（8）/ `mid`（12）/ `native`（16，最清晰但可见范围最小） |
@@ -301,6 +302,13 @@ make fmt      # 格式化
 make gen-level  # 重新生成 1-1
 make fmt-levels # 规整所有内置关卡的排版
 make e2e      # 用无头 Chrome 跑编辑器的浏览器测试（需要 Chrome 和 Node）
+```
+
+版本号只有一个来源：仓库根目录的 `VERSION` 文件，`make build` 会把它和当前 commit 一起编译进程序。发版规则（什么时候加 x、y、z）见 [VERSIONING.md](VERSIONING.md)：
+
+```bash
+go run ./tools/bumpversion minor -w   # 算好下一个版本号并写入
+./build/super-mario.exe version       # 查看当前版本
 ```
 
 测试覆盖的重点：

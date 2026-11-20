@@ -10,6 +10,7 @@ import (
 	"super-mario/pkg/engine"
 	"super-mario/pkg/render"
 	"super-mario/pkg/save"
+	"super-mario/pkg/version"
 )
 
 // titlePage is which screen the title area is showing.
@@ -229,6 +230,11 @@ func (a *App) drawMainMenu(w, h int) {
 	}
 	if a.notice != "" && h >= 8 {
 		writeCentered(a.screen, h-4, w, a.notice, muted)
+	}
+	// The version sits in the corner, out of the way of the menu but there
+	// when a bug report needs it.
+	if h >= 2 {
+		writeRight(a.screen, w-1, h-1, version.String(), muted)
 	}
 }
 

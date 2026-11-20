@@ -157,7 +157,10 @@
 <dialog id="dlg-help" class="help">
   <h2 data-i18n="dlg.help"></h2>
   <div id="help-body"></div>
-  <div class="dlg-buttons"><button onclick="this.closest('dialog').close()" data-i18n="dlg.close"></button></div>
+  <div class="dlg-buttons">
+    <span id="help-version" class="muted help-version"></span>
+    <button onclick="this.closest('dialog').close()" data-i18n="dlg.close"></button>
+  </div>
 </dialog>
 
 <script src="wasm_exec.js"></script>

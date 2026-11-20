@@ -69,6 +69,7 @@ async function boot() {
   }
   S.palettes = JSON.parse(mario.palettes());
   S.info = await (await fetch('api/info')).json();
+  $('help-version').textContent = S.info.version || '';
 
   buildLang(); buildPanels();
   wire();

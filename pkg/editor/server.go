@@ -10,6 +10,7 @@ import (
 
 	"super-mario/pkg/catalog"
 	"super-mario/pkg/level"
+	"super-mario/pkg/version"
 )
 
 // Server is the editor's HTTP side.
@@ -113,6 +114,8 @@ func (s *Server) info(w http.ResponseWriter, _ *http.Request) {
 		},
 		"open": s.Open,
 		"wasm": HasWasm(),
+		// The version the editor belongs to, so a problem report can name it.
+		"version": version.String(),
 	})
 }
 

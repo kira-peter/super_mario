@@ -1,0 +1,47 @@
+{
+  "name": "1-4",
+  "world": "1-4",
+  "width": 176,
+  "height": 15,
+  "timeLimit": 300,
+  "meta": {"title": "熔岩城堡", "author": "super-mario", "description": "低矮的岩顶压着头，脚下是熔岩坑；最后一座砖桥上有两只乌龟守着。", "difficulty": 4},
+  "style": {"theme": "lava"},
+  "spawn": {"x": 2, "y": 12},
+  "flag": {"x": 162, "topY": 2, "bottomY": 12},
+  "rows": [
+    "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH                    ",
+    "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH                    ",
+    "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH      T             ",
+    "                           HHH              HHH     HHH           HHH                   HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH     HHH           HHH                   HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH     HHH           HHH                   HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH     HHH           HHH    ?              HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH                   HHH                   HHH             HHHH                                                      F             ",
+    "                                            HHH                   HHH                                   HHHH                                                      F             ",
+    "          ?    ?                                                                                                                                                  F             ",
+    "                                                                        HHH                                   HHH                                                 F             ",
+    "                                        HHH                             HHH                                   HHH                                                 F             ",
+    "                                        HHH                             HHH                                   HHH                                                 F             ",
+    "XXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX   XXXXXXXXXXXXXXX   XXXXX   XXXXXXXXXXXXXXXXX   XXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXBBBBBBBBBBBBBBBBBBBBXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX   XXXXXXXXXXXXXXX   XXXXX   XXXXXXXXXXXXXXXXX   XXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX                    XXXXXXXXXXXXXXXXXXXXXXXX"
+  ],
+  "contents": [
+    {"x": 10, "y": 9, "kind": "mushroom"},
+    {"x": 15, "y": 9, "kind": "coin"},
+    {"x": 73, "y": 6, "kind": "coin"}
+  ],
+  "entities": [
+    {"kind": "goomba", "x": 31, "y": 12},
+    {"kind": "goomba", "x": 46, "y": 12},
+    {"kind": "goomba", "x": 49, "y": 12},
+    {"kind": "goomba", "x": 76, "y": 12},
+    {"kind": "goomba", "x": 78, "y": 12},
+    {"kind": "goomba", "x": 89, "y": 12},
+    {"kind": "goomba", "x": 92, "y": 12},
+    {"kind": "goomba", "x": 103, "y": 12},
+    {"kind": "goomba", "x": 115, "y": 12},
+    {"kind": "koopa", "x": 125, "y": 12},
+    {"kind": "koopa", "x": 139, "y": 12},
+    {"kind": "koopa", "x": 146, "y": 12}
+  ]
+}

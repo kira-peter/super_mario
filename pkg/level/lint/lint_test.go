@@ -214,6 +214,22 @@ func TestOneOneIsReachable(t *testing.T) {
 	}
 }
 
+// TestBuiltinWorldsAreClean: the eight built-in levels raise no design
+// warnings at all, the reach check included, so each can be cleared from its
+// start under the game's own jump physics.
+func TestBuiltinWorldsAreClean(t *testing.T) {
+	for _, n := range []string{"1-1", "1-2", "1-3", "1-4", "2-1", "2-2", "2-3", "2-4"} {
+		lv, err := level.LoadEmbedded(n)
+		if err != nil {
+			t.Errorf("%s: %v", n, err)
+			continue
+		}
+		for _, i := range Warnings(lv, &game.Default) {
+			t.Errorf("%s: %s at (%d,%d): %s", n, i.Code, i.X, i.Y, i.Message)
+		}
+	}
+}
+
 func TestTwelveTileGapIsFlagged(t *testing.T) {
 	got := run(t, sketch{width: 80, gaps: [][2]int{{30, 42}}})
 	i, ok := got["gap-too-wide"]

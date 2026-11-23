@@ -1,0 +1,44 @@
+{
+  "name": "2-1",
+  "world": "2-1",
+  "width": 168,
+  "height": 15,
+  "timeLimit": 400,
+  "meta": {"title": "雪原高塔", "author": "super-mario", "description": "一路往上爬：石柱、砖塔和高高的台阶，乌龟从上面走下来。", "difficulty": 3},
+  "style": {"theme": "snow"},
+  "spawn": {"x": 2, "y": 12},
+  "flag": {"x": 146, "topY": 2, "bottomY": 12},
+  "rows": [
+    "                                                                                                                                                                        ",
+    "                                                                                                                                                                        ",
+    "                                                    ?                                                                                             T                     ",
+    "                          ?                                                                          ?                                            F                     ",
+    "                                                                                                                                                  F                     ",
+    "                                                                                                                                                  F                     ",
+    "                                                   BB                                                                                             F                     ",
+    "                         HHH          H            BB               HH                              BB                                 H          F                     ",
+    "                         HHH         HH            BB               HH       HH                     BB        B                       HH          F                     ",
+    "               H         HHH        HHH            BB          HH   HH   HH  HH             B       BB        B                      HHH          F                     ",
+    "              HH     HH  HHH       HHHH        HH  BB          HH   HH   HH  HH             B       BB        B                     HHHH          F                     ",
+    "             HHH     HH  HHH      HHHHH        HH  BB          HH   HH   HH  HH             B       BB        B                    HHHHH          F                     ",
+    "            HHHH     HH  HHH     HHHHHH        HH  BB          HH   HH   HH  HH             B       BB        B                   HHHHHH          F                     ",
+    "XXXXXXXXXXXXXXXXXXXXXHHXXHHHXXXXXXXXXXXX   XXXXHHXXXXXXXXXXXXXXHHXXXHHXXXHHXXHHX    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXXHHXXHHHXXXXXXXXXXXX   XXXXHHXXXXXXXXXXXXXXHHXXXHHXXXHHXXHHX    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  ],
+  "contents": [
+    {"x": 26, "y": 3, "kind": "mushroom"},
+    {"x": 52, "y": 2, "kind": "oneup"},
+    {"x": 101, "y": 3, "kind": "coin"}
+  ],
+  "entities": [
+    {"kind": "koopa", "x": 27, "y": 6},
+    {"kind": "goomba", "x": 57, "y": 12},
+    {"kind": "goomba", "x": 60, "y": 12},
+    {"kind": "koopa", "x": 69, "y": 6},
+    {"kind": "koopa", "x": 96, "y": 12},
+    {"kind": "goomba", "x": 105, "y": 12},
+    {"kind": "goomba", "x": 107, "y": 12},
+    {"kind": "goomba", "x": 114, "y": 12},
+    {"kind": "goomba", "x": 116, "y": 12}
+  ]
+}

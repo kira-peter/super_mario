@@ -46,6 +46,7 @@ clean:
 # so running this on an unchanged script leaves git with nothing to show.
 gen-level:
 	python tools/genlevel.py
+	python tools/genworlds.py
 	go run ./cmd/super-mario fmt-levels
 
 # Rewrite every built-in level in the canonical layout.

@@ -4,6 +4,8 @@
   "width": 186,
   "height": 15,
   "timeLimit": 400,
+  "meta": {"title": "草原初探", "author": "super-mario", "description": "第一关：跑、跳、顶问号块，越过水管和断层，一路走到旗杆。", "difficulty": 1},
+  "style": {"theme": "grassland"},
   "spawn": {"x": 2, "y": 12},
   "flag": {"x": 169, "topY": 2, "bottomY": 12},
   "rows": [

@@ -147,6 +147,12 @@ level = {
     "width": W,
     "height": H,
     "timeLimit": 400,
+    "meta": {
+        "title": "草原初探",
+        "author": "super-mario",
+        "description": "第一关：跑、跳、顶问号块，越过水管和断层，一路走到旗杆。",
+        "difficulty": 1,
+    },
     "spawn": {"x": 2, "y": FLOOR_TOP - 1},
     "flag": {"x": FLAG_X, "topY": 2, "bottomY": FLOOR_TOP - 1},
     "rows": rows,

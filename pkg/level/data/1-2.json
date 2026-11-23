@@ -1,0 +1,49 @@
+{
+  "name": "1-2",
+  "world": "1-2",
+  "width": 168,
+  "height": 15,
+  "timeLimit": 400,
+  "meta": {"title": "地下砖窟", "author": "super-mario", "description": "低矮的砖块走廊里踢龟壳，砖顶上还有一条藏着金币的近道。", "difficulty": 2},
+  "style": {"theme": "underground"},
+  "spawn": {"x": 2, "y": 12},
+  "flag": {"x": 148, "topY": 2, "bottomY": 12},
+  "rows": [
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                     ",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                     ",
+    "                                                                                                                                                    T                   ",
+    "                                                                                                                                                    F                   ",
+    "                                                                                     ?                                                              F                   ",
+    "                                    o o o o o o o o o o                                                                                             F                   ",
+    "                                                                                                                                                    F                   ",
+    "                                                                                                                                                    F                   ",
+    "                                  BBBBBB?BBBBBBB?BBBBBBBB             B             BB                                                      H       F                   ",
+    "            BB?BBBBB           H                                      B             BB                      []                             HH       F                   ",
+    "                              HH                                      B     []      BB                      {}      []                    HHH       F                   ",
+    "                             HHH    o o o o o o o o o o               B     {}      BB                []    {}      {}                   HHHH       F                   ",
+    "                            HHHH                                      B     {}      BB                {}    {}      {}                  HHHHH       F                   ",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX    XXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  ],
+  "contents": [
+    {"x": 14, "y": 9, "kind": "mushroom"},
+    {"x": 18, "y": 9, "kind": "coin", "count": 6},
+    {"x": 40, "y": 8, "kind": "coin"},
+    {"x": 48, "y": 8, "kind": "star"},
+    {"x": 85, "y": 4, "kind": "coin"},
+    {"x": 112, "y": 9, "kind": "oneup", "hidden": true}
+  ],
+  "entities": [
+    {"kind": "goomba", "x": 24, "y": 12},
+    {"kind": "goomba", "x": 26, "y": 12},
+    {"kind": "koopa", "x": 52, "y": 7},
+    {"kind": "goomba", "x": 73, "y": 12},
+    {"kind": "goomba", "x": 80, "y": 12},
+    {"kind": "goomba", "x": 89, "y": 12},
+    {"kind": "goomba", "x": 91, "y": 12},
+    {"kind": "goomba", "x": 105, "y": 12},
+    {"kind": "goomba", "x": 113, "y": 12},
+    {"kind": "goomba", "x": 114, "y": 12},
+    {"kind": "goomba", "x": 120, "y": 12}
+  ]
+}

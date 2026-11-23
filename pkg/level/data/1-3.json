@@ -1,0 +1,38 @@
+{
+  "name": "1-3",
+  "world": "1-3",
+  "width": 168,
+  "height": 15,
+  "timeLimit": 400,
+  "meta": {"title": "黎明云阶", "author": "super-mario", "description": "没有地面，只有石柱和悬空的平台，一步一步跳过去。", "difficulty": 3},
+  "style": {"theme": "dawn"},
+  "spawn": {"x": 2, "y": 12},
+  "flag": {"x": 158, "topY": 2, "bottomY": 12},
+  "rows": [
+    "                                                                                                                                                                        ",
+    "                                                                                                                                                                        ",
+    "                                                                                                                                                              T         ",
+    "                                                                            ?                                                                                 F         ",
+    "                                                                                 o                                        ooo                                 F         ",
+    "                              o                         o                       o o                                                                           F         ",
+    "                             o o                       o o                                             o                  HHH                                 F         ",
+    "                                                                          BBBBB                       o o                                                     F         ",
+    "                o               HHHH                      HH                                                        HH                                        F         ",
+    "               o o       HHH                              HH                                      HHH               HH           HHHHH                 H      F         ",
+    "                         HHH                  HHHHHHHH    HH    HHHHHH                    HHHH                      HH           HHHHH                HH      F         ",
+    "                  HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH                    HHHH           HHHHHHH    HH           HHHHH    HHH        HHH      F         ",
+    "                  HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHH    HH           HHHHH    HHH       HHHH      F         ",
+    "XXXXXXXXXXXXXX    HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHH    HH           HHHHH    HHH    XXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXX    HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHH    HH           HHHHH    HHH    XXXXXXXXXXXXXXXXXXXXXXX"
+  ],
+  "contents": [
+    {"x": 76, "y": 3, "kind": "mushroom"}
+  ],
+  "entities": [
+    {"kind": "koopa", "x": 52, "y": 9},
+    {"kind": "goomba", "x": 68, "y": 9},
+    {"kind": "goomba", "x": 108, "y": 10},
+    {"kind": "goomba", "x": 110, "y": 10},
+    {"kind": "koopa", "x": 133, "y": 8}
+  ]
+}

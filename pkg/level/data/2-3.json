@@ -1,0 +1,47 @@
+{
+  "name": "2-3",
+  "world": "2-3",
+  "width": 200,
+  "height": 15,
+  "timeLimit": 100,
+  "meta": {"title": "黄昏长桥", "author": "super-mario", "description": "在晚霞里跑过一座断断续续的长桥，时间很紧，别停下来。", "difficulty": 3},
+  "style": {"theme": "dusk"},
+  "spawn": {"x": 2, "y": 12},
+  "flag": {"x": 182, "topY": 2, "bottomY": 12},
+  "rows": [
+    "                                                                                                                                                                                                        ",
+    "                                                                                                                                                                                                        ",
+    "                                                                                                                                                                                      T                 ",
+    "                                                                                                                                                                                      F                 ",
+    "                                                                                                                                                                                      F                 ",
+    "                        ?              oo         ?        oo    oo         ?         ooo       ?        oo     oo        ?             ooo       ?            ooo                    F                 ",
+    "                                      o  o                o  o  o  o                 o   o              o  o   o  o                    o   o                  o   o                   F                 ",
+    "                                                                                                                                                                                      F                 ",
+    "                                                                                                                                                                              H       F                 ",
+    "                                                                                                                                                                             HH       F                 ",
+    "                 BBBBBBBBBBBBBBBBBBBBB    BBBBBBBBBBBBBBBB    BB    BBBBBBBBBBBBBBBBB     BBBBBBBBBBBBBB    BBB    BBBBBBBBBBBBBBBBBBBB     BBBBBBBBBBBBBBBBBB              HHH       F                 ",
+    "                                                                                                                                                                           HHHH       F                 ",
+    "                                                                                                                                                                          HHHHH       F                 ",
+    "XXXXXXXXXXXXXXX                                                                                                                                                    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXX                                                                                                                                                    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  ],
+  "contents": [
+    {"x": 24, "y": 5, "kind": "coin"},
+    {"x": 50, "y": 5, "kind": "coin"},
+    {"x": 76, "y": 5, "kind": "coin"},
+    {"x": 96, "y": 5, "kind": "mushroom"},
+    {"x": 122, "y": 5, "kind": "coin"},
+    {"x": 146, "y": 5, "kind": "coin"}
+  ],
+  "entities": [
+    {"kind": "goomba", "x": 30, "y": 9},
+    {"kind": "goomba", "x": 34, "y": 9},
+    {"kind": "goomba", "x": 52, "y": 9},
+    {"kind": "goomba", "x": 78, "y": 9},
+    {"kind": "goomba", "x": 81, "y": 9},
+    {"kind": "koopa", "x": 98, "y": 9},
+    {"kind": "goomba", "x": 125, "y": 9},
+    {"kind": "goomba", "x": 130, "y": 9},
+    {"kind": "goomba", "x": 150, "y": 9}
+  ]
+}

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"super-mario/pkg/engine"
+	"super-mario/pkg/game"
 )
 
 // TestRespawnKeepsCameraInPlace is the regression test for the reported bug:
@@ -26,11 +27,12 @@ func TestRespawnKeepsCameraInPlace(t *testing.T) {
 	before := a.world.CameraY
 	beforeX := a.world.CameraX
 
-	// Kill the player, then run through the death animation to a respawn.
+	// Kill the player, then run through the death animation to a respawn,
+	// and the arrival that follows it (his pixels assembling, the drop).
 	a.world.Score.Lives = 3
 	a.world.Player.Die()
 	a.sm.Die()
-	for i := 0; i < 120; i++ {
+	for i := 0; i < game.DeathTotal+game.MeltSteps+20; i++ {
 		a.stepOnce()
 		if a.sm.Is(engine.StatePlaying) {
 			break
@@ -39,7 +41,7 @@ func TestRespawnKeepsCameraInPlace(t *testing.T) {
 	if !a.sm.Is(engine.StatePlaying) {
 		t.Fatalf("did not respawn, state = %v", a.sm.Current())
 	}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < game.RespawnDrop+10; i++ {
 		a.stepOnce()
 	}
 

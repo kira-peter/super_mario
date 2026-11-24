@@ -72,19 +72,25 @@ func TestCoinPlusFadesAway(t *testing.T) {
 	}
 }
 
-// TestCoinsLandingTogetherAddUp checks the gold mushroom's five coins fly in a
-// line and show as one count going up, not five labels on top of each other.
-func TestCoinsLandingTogetherAddUp(t *testing.T) {
+// TestGoldMushroomCountsWhenItsCoinLands checks the gold mushroom: one big
+// coin assembles and flies to the counter, and its five coins show there as
+// one "+5" when it lands, not before.
+func TestGoldMushroomCountsWhenItsCoinLands(t *testing.T) {
 	w := newTestWorld(t)
+	before := w.CoinsShown()
 	pickUp(t, w, ItemGold)
-	if len(w.CoinFX) != goldCoins {
-		t.Fatalf("%d coins flying after a gold mushroom, want %d", len(w.CoinFX), goldCoins)
+	if got := w.CoinsShown(); got != before {
+		t.Fatalf("the counter shows %d while the coin is still on its way, want %d", got, before)
 	}
-	for i := 0; i < CoinFlySteps+goldCoins*goldStagger; i++ {
+	for i := 0; i < OneUpSteps; i++ {
+		w.updateEffects()
 		w.updateCoinFX()
 	}
+	if got := w.CoinsShown(); got != before+goldCoins {
+		t.Errorf("the counter shows %d after the coin landed, want %d", got, before+goldCoins)
+	}
 	if len(w.CoinPlus) != 1 || w.CoinPlus[0].Amount != goldCoins {
-		t.Errorf("want one \"+%d\", got %d labels", goldCoins, len(w.CoinPlus))
+		t.Errorf("want one \"+%d\", got %v", goldCoins, w.CoinPlus)
 	}
 }
 

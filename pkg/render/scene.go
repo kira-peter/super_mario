@@ -2,6 +2,10 @@ package render
 
 import (
 	"fmt"
+	"math"
+	"strings"
+
+	"github.com/gdamore/tcell/v2"
 
 	"super-mario/pkg/engine"
 	"super-mario/pkg/game"
@@ -152,6 +156,7 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 	d.items(w)
 	d.enemies(w)
 	d.player(w)
+	d.effects(w)
 	d.particles(w)
 	d.coins(w)
 	return c
@@ -389,6 +394,16 @@ func (d drawer) enemies(w *game.World) {
 			continue
 		}
 		flip := e.Facing > 0
+		if e.Knocked {
+			// Knocked out: upside down, falling away.
+			switch e.Kind {
+			case game.EnemyGoomba:
+				d.standOnFlipped(cast4.Goomba[0], &e.Body, flip, gp)
+			case game.EnemyKoopa:
+				d.standOnFlipped(cast4.Shell, &e.Body, false, kp)
+			}
+			continue
+		}
 		switch e.Kind {
 		case game.EnemyGoomba:
 			if e.Squashed > 0 {
@@ -431,60 +446,201 @@ func (d drawer) player(w *game.World) {
 	if p.Hidden {
 		return
 	}
+	step := w.StepCount()
 
-	// Blinking: star form and the grace period after a hit.
-	if p.Form == game.FormStar && (w.StepCount()/3)%2 == 0 {
-		return
-	}
-	if p.GrowFlash > 0 && (p.GrowFlash/2)%2 == 0 {
-		return
-	}
-
+	// After a hit: flicker between the big and the small drawing while the
+	// world holds still, then a short grace period of faint blinking.
 	big := p.Form != game.FormSmall && !p.Dead
+	if p.Shrinking > 0 {
+		big = (p.Shrinking/4)%2 == 0
+	} else if p.Invulnerable() && !p.HasStar() && !p.Dead && (step/2)%3 == 0 {
+		return
+	}
+	if p.GrowFlash > 0 {
+		// Growing: flicker small, big, small, big.
+		big = (p.GrowFlash/3)%2 == 1
+	}
+
 	pose := HeroStand
-	if !p.Grounded && !p.Dead {
+	if (!p.Grounded || p.Respawning > 0) && !p.Dead {
 		pose = HeroJump
 	}
-
 	phases := WheelPhases(big)
 	phase := 0
 	if !p.Dead {
 		phase = p.WheelPhase(phases)
 	}
 	hero := Hero(big, pose, phase)
-	if p.Facing < 0 {
+	facing := p.Facing
+	if p.Dead {
+		// Dead, he faces the way he was going.
+		facing = p.DeathFacing
+		hero = Hero(false, HeroJump, 0)
+	}
+	if facing < 0 {
 		hero = hero.Mirrored()
 	}
 
-	// Scale from the design resolution to the current zoom.
 	scaleNum, scaleDen := d.px, heroDesignPx
-	sw := hero.Sprite.W * scaleNum / scaleDen
-	sh := hero.Sprite.H * scaleNum / scaleDen
-	if sw < 1 {
-		sw = 1
-	}
-	if sh < 1 {
-		sh = 1
-	}
-
-	// Horizontal anchor: the middle of the head, not of the whole drawing.
-	//
-	// The body is not symmetrical: the back hand is tucked in and the front hand
-	// sticks out, so the middle of the drawing moves when he turns round. If
-	// that were the anchor, he would hop a pixel every time he changed
-	// direction. The head is always centred, so it stays put and the arms swing
-	// round it.
+	sw := max(1, hero.Sprite.W*scaleNum/scaleDen)
+	sh := max(1, hero.Sprite.H*scaleNum/scaleDen)
 	headMid := (hero.Width * scaleNum / scaleDen) / 2
 	centreX := WorldToArtScaled(p.Pos.X+p.W/2, d.px) - d.camX
-
-	// Vertical anchor: the wheel rests on the ground line, which is the bottom of
-	// the collision box rounded to the nearest pixel, not truncated. The box's
-	// bottom edge is rarely on a whole pixel (fifteen game units is three and
-	// three-quarter pixels at this scale), and truncating floats him a pixel
-	// above the floor.
 	bottomY := roundArt(p.Pos.Y+p.H, d.px) - d.camY
+	x, y := centreX-headMid, bottomY-sh
 
-	d.c.DrawSized(hero.Sprite, centreX-headMid, bottomY-sh, sw, sh, d.s.T)
+	switch {
+	case p.Dead:
+		d.deadHero(w, hero, x, y, sw, sh)
+	case w.RespawnGathering() >= 0:
+		d.gatheringHero(w, hero, x, y, sw, sh)
+	case p.HasStar():
+		// Star power: a trail of fading afterimages behind him, and his colours
+		// cycling through the rainbow. It speeds up and fades as it runs out.
+		d.starTrail(w, hero, sw, sh, headMid)
+		hue := step * 12
+		ending := p.StarSec < 120
+		if ending {
+			hue = step * 6
+		}
+		tint := func(c tcell.Color) tcell.Color { return rainbowTint(c, hue) }
+		if ending && (step/4)%2 == 0 {
+			tint = nil
+		}
+		d.c.DrawTinted(hero.Sprite, x, y, sw, sh, d.s.T, tint, false)
+		d.starSparkles(x, y, sw, sh, step)
+	default:
+		if p.Poisoned > 0 {
+			d.c.DrawTinted(hero.Sprite, x, y, sw, sh, d.s.T, sickTint(p.Poisoned), false)
+			return
+		}
+		d.c.DrawSized(hero.Sprite, x, y, sw, sh, d.s.T)
+	}
+}
+
+// starTrail draws a few faint copies of him where he really was a moment ago,
+// from the positions the player keeps; standing still they sit under him and
+// do not show.
+func (d drawer) starTrail(w *game.World, hero HeroDrawing, sw, sh, headMid int) {
+	p := w.Player
+	for i := 3; i >= 1; i-- {
+		past, ok := p.PastPos(i * 3)
+		if !ok {
+			continue
+		}
+		cx := WorldToArtScaled(past.X+p.W/2, d.px) - d.camX
+		by := roundArt(past.Y+p.H, d.px) - d.camY
+		fade := float64(i) * 0.22
+		hue := (w.StepCount() - i*4) * 12
+		tint := func(c tcell.Color) tcell.Color {
+			return blend(rainbowTint(c, hue), d.skyAt(by-sh/2, w).(tcell.Color), 0.35+fade)
+		}
+		d.c.DrawTinted(hero.Sprite, cx-headMid, by-sh, sw, sh, d.s.T, tint, false)
+	}
+}
+
+// starSparkles twinkles a few points of light around him.
+func (d drawer) starSparkles(x, y, w, h, step int) {
+	for i := 0; i < 3; i++ {
+		s := uint32(step/5 + i*7)
+		s = s*2654435761 ^ s>>13
+		sx := x - 1 + int(s%uint32(w+2))
+		sy := y - 1 + int((s>>8)%uint32(h+2))
+		c := d.s.T.Cast.Cloud
+		if i == 1 {
+			c = d.s.T.CoinHi
+		}
+		d.c.Set(sx, sy, c)
+	}
+}
+
+// greyOf turns a colour into its grey, a touch darker: the colour of a hero
+// who has just lost a life.
+func greyOf(c tcell.Color) tcell.Color {
+	r, g, b := c.RGB()
+	if r < 0 {
+		return c
+	}
+	l := int32(0.30*float64(r)+0.59*float64(g)+0.11*float64(b)) * 4 / 5
+	return tcell.NewRGBColor(l, l, l)
+}
+
+// rainbowTint shifts a colour round the colour wheel by hue degrees, keeping
+// its lightness, so the drawing stays readable while it cycles.
+func rainbowTint(c tcell.Color, hue int) tcell.Color {
+	r, g, b := c.RGB()
+	if r < 0 {
+		return c
+	}
+	h, s, l := rgbToHSL(float64(r)/255, float64(g)/255, float64(b)/255)
+	if s < 0.15 {
+		// Whites, greys and the outline: add a little of the current hue.
+		s = 0.35
+	} else if s < 0.7 {
+		s = 0.85
+	}
+	h = math.Mod(h+float64(hue), 360)
+	if l < 0.25 {
+		l = 0.3
+	}
+	rr, gg, bb := hslToRGB(h, s, l)
+	return tcell.NewRGBColor(int32(rr*255), int32(gg*255), int32(bb*255))
+}
+
+func rgbToHSL(r, g, b float64) (h, s, l float64) {
+	mx, mn := math.Max(r, math.Max(g, b)), math.Min(r, math.Min(g, b))
+	l = (mx + mn) / 2
+	if mx == mn {
+		return 0, 0, l
+	}
+	d := mx - mn
+	if l > 0.5 {
+		s = d / (2 - mx - mn)
+	} else {
+		s = d / (mx + mn)
+	}
+	switch mx {
+	case r:
+		h = (g - b) / d
+		if g < b {
+			h += 6
+		}
+	case g:
+		h = (b-r)/d + 2
+	default:
+		h = (r-g)/d + 4
+	}
+	return h * 60, s, l
+}
+
+func hslToRGB(h, s, l float64) (r, g, b float64) {
+	if s == 0 {
+		return l, l, l
+	}
+	q := l * (1 + s)
+	if l >= 0.5 {
+		q = l + s - l*s
+	}
+	p := 2*l - q
+	hk := h / 360
+	conv := func(t float64) float64 {
+		if t < 0 {
+			t++
+		}
+		if t > 1 {
+			t--
+		}
+		switch {
+		case t < 1.0/6:
+			return p + (q-p)*6*t
+		case t < 0.5:
+			return q
+		case t < 2.0/3:
+			return p + (q-p)*(2.0/3-t)*6
+		}
+		return p
+	}
+	return conv(hk + 1.0/3), conv(hk), conv(hk - 1.0/3)
 }
 
 func (d drawer) particles(w *game.World) {
@@ -519,15 +675,53 @@ func mirror(s Sprite) Sprite {
 // HUDRow renders the status line. The coin count is the one on screen, which
 // catches up as each flying coin lands.
 func HUDRow(w *game.World, width int) string {
+	// Everything that changes is on the left, in fixed columns with room after
+	// each counter for its "+N"; the level's name stands alone on the right.
+	//
+	//	MARIO 000000   ⓒ×00      ♥×3      TIME 400              WORLD 1-1
+	//	0              15        25       34
 	s := fmt.Sprintf("MARIO %06d   ⓒ×%02d", w.Score.Points, w.CoinsShown())
-	right := fmt.Sprintf("WORLD %s   TIME %03d   ♥×%d", w.Level.World, w.TimeLeft, w.Score.Lives)
+	s = padTo(s, LivesCounterCol) + fmt.Sprintf("♥×%d", w.LivesShown())
+	s = padTo(s, TimeCol) + fmt.Sprintf("TIME %03d", w.TimeLeft)
+	right := "WORLD " + w.Level.World
 	gap := width - len([]rune(s)) - len([]rune(right))
-	if gap < 1 {
-		gap = 1
+	if gap < 2 {
+		gap = 2
 	}
-	out := s
-	for i := 0; i < gap; i++ {
-		out += " "
+	return s + strings.Repeat(" ", gap) + right
+}
+
+// LivesCounterCol is the screen column of the heart icon in the status line,
+// where the 1UP heart flies to and its "+1" appears just after.
+const LivesCounterCol = 25
+
+// TimeCol is the screen column the time starts in.
+const TimeCol = 34
+
+// padTo pads s with spaces to n runes (or one space, if it is already longer).
+func padTo(s string, n int) string {
+	l := len([]rune(s))
+	if l >= n {
+		return s + " "
 	}
-	return out + right
+	return s + strings.Repeat(" ", n-l)
+}
+
+// StarCountdown is the star-power countdown for the status line: the text to
+// show ("★ 7.3"), and the colour it is in this step, cycling like the hero
+// while plenty is left and flashing as it runs out. ok is false when there is
+// no star.
+func StarCountdown(w *game.World, t theme.Tokens) (text string, col tcell.Color, ok bool) {
+	p := w.Player
+	if !p.HasStar() {
+		return "", 0, false
+	}
+	secs := float64(p.StarSec) / 60
+	text = fmt.Sprintf("★ %.1f", secs)
+	step := w.StepCount()
+	col = rainbowTint(t.CoinHi, step*12)
+	if p.StarSec < 120 && (step/6)%2 == 0 {
+		col = t.HudMuted
+	}
+	return text, col, true
 }

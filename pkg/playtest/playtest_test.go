@@ -56,6 +56,8 @@ func TestPlaytestMatchesTheGame(t *testing.T) {
 	w := game.NewWorld(lv, &game.Default, sm, 3)
 	w.SetSeed(77)
 	w.SetViewport(engine.Tile*20, engine.Tile*15)
+	// The playtest opens with his arrival, as the game does.
+	w.StartEntrance()
 
 	var held Input
 	press := func(in Input) {
@@ -131,6 +133,10 @@ func TestStartRefusesALevelWithErrors(t *testing.T) {
 
 func TestDeathEndsThePlaytest(t *testing.T) {
 	s, _ := Start(oneOne(t), Options{FromColumn: -1})
+	// Let him arrive first; nothing can happen while he is being assembled.
+	for i := 0; i < game.RespawnDrop; i++ {
+		s.Step(0)
+	}
 	s.World.Player.Pos.Y = engine.Fixed(20) * engine.Tile
 	if end := s.Step(0); end != Died {
 		t.Fatalf("end = %q after falling out of the level", end)

@@ -120,6 +120,8 @@ func Start(data []byte, opts Options) (*Session, []lint.Issue) {
 			s.Notice = "这一列没有落脚点，从出生点开始"
 		}
 	}
+	// He arrives as in the game: pixels assembling above where he starts.
+	w.StartEntrance()
 	s.scene = render.ForLevel(theme.Ink, "ink", lv, theme.TrueColor)
 	return s, nil
 }

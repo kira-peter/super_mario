@@ -26,8 +26,14 @@ func testCatalog(t *testing.T) *catalog.Catalog {
 func localLevel(t *testing.T, a *App, id, title string) {
 	t.Helper()
 	data, _ := os.ReadFile(filepath.Join("..", "level", "data", "1-1.json"))
-	data = []byte(strings.Replace(string(data), `"timeLimit": 400,`, `"timeLimit": 400,
-  "meta": {"title": "`+title+`"},`, 1))
+	// 1-1 has a meta line of its own; replace it with one naming this copy.
+	lines := strings.Split(string(data), "\n")
+	for i, l := range lines {
+		if strings.HasPrefix(strings.TrimSpace(l), `"meta":`) {
+			lines[i] = `  "meta": {"title": "` + title + `"},`
+		}
+	}
+	data = []byte(strings.Join(lines, "\n"))
 	if _, err := a.catalog.Write(catalog.Local, id, data); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +106,8 @@ func TestSelectEntersAndEscReturns(t *testing.T) {
 	a := headlessTitleApp(t)
 	openSelect(t, a)
 	rows := renderTitleText(t, a, 100, 30)
-	if !strings.Contains(strings.Join(rows, "\n"), "1-1") {
+	// An official level with a title is listed by its title.
+	if text := strings.Join(rows, "\n"); !strings.Contains(text, "1-1") && !strings.Contains(strings.ReplaceAll(text, " ", ""), "草原初探") {
 		t.Error("the list does not show 1-1")
 	}
 	a.handleEvent(keyEvent(tcell.KeyEscape, 0))

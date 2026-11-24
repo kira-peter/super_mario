@@ -44,7 +44,26 @@ type Enemy struct {
 	Grace int
 	// Removed marks an enemy that should be dropped from the world.
 	Removed bool
+	// Knocked is set for an enemy hit by a shell or a star: it flips upside
+	// down, pops up and falls out of the level, passing through everything.
+	Knocked bool
 	// Sliding direction is carried by Vel.X for shells.
+}
+
+// knockSpeed is the hop a knocked-out enemy makes before it falls away.
+var knockSpeed = engine.FromFloat(-3.5)
+
+// knockOut sends an enemy flying: upside down, a hop up and away from the hit,
+// then a fall through the floor and out of the level.
+func (e *Enemy) knockOut(fromX engine.Fixed) {
+	e.Knocked = true
+	e.Squashed = 0
+	dir := engine.Fixed(1)
+	if fromX > e.CenterX() {
+		dir = -1
+	}
+	e.Vel = engine.Vec2{X: dir * engine.FromFloat(0.8), Y: knockSpeed}
+	e.Active = true
 }
 
 // NewGoomba returns a walking Goomba at a cell.
@@ -91,6 +110,15 @@ func (e *Enemy) update(lv *level.Level, t *Tuning) {
 		return
 	}
 	if e.Removed {
+		return
+	}
+	if e.Knocked {
+		// No collision: it falls through the ground and out of the level.
+		e.Vel.Y += t.GravityFall
+		e.Pos = e.Pos.Add(e.Vel)
+		if e.Pos.Y > engine.Fixed(lv.Height+2)*engine.Tile {
+			e.Removed = true
+		}
 		return
 	}
 	if e.Grace > 0 {

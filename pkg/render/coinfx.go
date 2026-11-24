@@ -81,6 +81,26 @@ func CoinPlusStyle(t theme.Tokens, age int) (tcell.Style, bool) {
 	}
 }
 
+// LifePlusStyle is CoinPlusStyle in the heart's red, for the "+1" at the lives
+// counter.
+func LifePlusStyle(t theme.Tokens, age int) (tcell.Style, bool) {
+	if age >= game.CoinPlusSteps {
+		return tcell.StyleDefault, false
+	}
+	red := heartRed
+	st := tcell.StyleDefault.Background(t.Sky)
+	const pop, hold = 6, 24
+	switch {
+	case age < pop:
+		return st.Foreground(blend(t.Sky, red, float64(age+1)/pop)), true
+	case age < hold:
+		return st.Foreground(red).Bold(true), true
+	default:
+		f := 1 - float64(age-hold)/float64(game.CoinPlusSteps-hold)
+		return st.Foreground(blend(t.Sky, red, f)), true
+	}
+}
+
 // blend mixes two colours, f of the way from a to b. A colour without RGB
 // (a monochrome terminal's default) gives b, so the text shows rather than
 // disappearing.

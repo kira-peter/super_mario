@@ -176,6 +176,10 @@ try {
   await b.mouse('mouseMoved', hx, hy, 'none', 0);
   await b.key('Enter', 'Enter', 0, '\r'); await sleep(250);
   ok(await b.evaluate(`__editor.playing()`), 'Enter starts a playtest');
+  // He arrives first (pixels assembling, then the drop, 88 steps) and cannot
+  // move until he lands; wait for that before holding the keys.
+  for (let i = 0; i < 100 && (await b.evaluate(`__editor.playSteps()`)) < 90; i++) await sleep(100);
+  const arrived = await b.evaluate(`__editor.playSteps()`);
   await b.keyDown('ArrowRight', 'ArrowRight'); await b.keyDown('Shift', 'ShiftLeft');
   await sleep(600);
   const heldMid = await b.evaluate(`__editor.playKeys()`);
@@ -191,8 +195,10 @@ try {
   ok((await b.evaluate(`__editor.level()`)) === before, 'playtest left the level unchanged');
   const run = await b.evaluate(`__editor.lastRun()`);
   // Headless Chrome runs animation frames slower than real time, so judge the
-  // movement by the steps the game actually ran, not by the wall clock.
-  ok(run && run.steps > 20 && run.column > 2 + run.steps * 0.02, `the held arrow key moved Mario (to column ${run && run.column.toFixed(1)} in ${run && run.steps} steps)`);
+  // movement by the steps the game actually ran after he arrived, not by the
+  // wall clock.
+  const moved = run ? run.steps - arrived : 0;
+  ok(run && moved > 20 && run.column > 2 + moved * 0.02, `the held arrow key moved Mario (to column ${run && run.column.toFixed(1)} in ${moved} steps after arriving)`);
   const view = await b.evaluate(`__editor.view()`);
   const cols = await b.evaluate(`document.getElementById('canvas').width`) / view.scale;
   ok(Math.abs(view.x + cols / 2 - run.column) < 2 || view.x <= -1, 'the view is centred where the run ended');

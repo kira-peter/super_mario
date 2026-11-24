@@ -24,6 +24,9 @@ func styledWorld(t *testing.T, st level.Style) *game.World {
 // before levels had styles, at every zoom.
 func TestUnstyledLevelIsPixelIdentical(t *testing.T) {
 	w := castWorld(t)
+	// The rule is about a level with no style; the built-in 1-1 has one now,
+	// so take its terrain without it.
+	w.Level.Style = level.Style{}
 	for _, px := range []int{4, 8, 12, 16} {
 		for _, base := range []theme.Tokens{theme.Ink, theme.Paper} {
 			plain := (&Scene{T: base}).Draw(w, px)

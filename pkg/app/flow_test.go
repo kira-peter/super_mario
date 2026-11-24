@@ -6,6 +6,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 
 	"super-mario/pkg/engine"
+	"super-mario/pkg/game"
 	"super-mario/pkg/save"
 )
 
@@ -207,8 +208,10 @@ func TestFullLoopFromTitleToBoardAndBack(t *testing.T) {
 		t.Fatalf("Enter on 开始游戏 left state %v, want playing", a.sm.Current())
 	}
 
-	// Play a little, then touch the flag with some score banked.
-	for i := 0; i < 120; i++ {
+	// Play a little, then touch the flag with some score banked. The run opens
+	// with his arrival (pixels assembling, the drop), which is not play time,
+	// so play past it first.
+	for i := 0; i < game.RespawnDrop+120; i++ {
 		a.stepOnce()
 	}
 	a.world.Score.Points = 2400

@@ -45,9 +45,28 @@ type Player struct {
 	Dead bool
 	// deathTimer counts the death animation.
 	deathTimer int
+	// deathY0 is where he stood when he died; the hop starts there.
+	deathY0 engine.Fixed
 
 	// GrowFlash counts the frames of the grow/shrink flash.
 	GrowFlash int
+	// Shrinking counts down the shrink animation after a hit, during which the
+	// world holds still: he flickers between big and small, as in the original.
+	Shrinking int
+	// DeathFacing is the way he faced when he died; he tumbles the other way.
+	DeathFacing int
+	// Respawning counts down the drop from the sky at the start of a new life.
+	Respawning int
+	// Poisoned counts down the sick look after a poison mushroom.
+	Poisoned int
+	// Melting marks a death by poison: instead of breaking apart he sickens
+	// where he stands, then melts, his pixels dripping slowly down.
+	Melting bool
+
+	// trail is where he stood over the last few steps, newest last, for the
+	// star's afterimages. trailN is how many entries are filled.
+	trail  [trailLen]engine.Vec2
+	trailN int
 
 	// SlideDown is set while he is on the pole.
 	SlideDown bool
@@ -114,14 +133,9 @@ func (p *Player) applyForm(lv *level.Level, f Form) {
 	// If growing put the head inside a tile, try shifting down instead.
 	if f != FormSmall && overlapsSolid(lv, p.Rect()) {
 		p.Pos.Y = oldBottom - p.H
-		if overlapsSolid(lv, p.Rect()) {
-			// Still stuck: fall back to the previous size so the player is
-			// never trapped inside geometry.
-			if f == FormStar {
-				p.Form = FormStar
-				return
-			}
-		}
+	}
+	if f == FormStar {
+		f = FormBig // star power is not a size; see Star
 	}
 	p.Form = f
 }
@@ -153,39 +167,119 @@ func (p *Player) Grow(lv *level.Level) bool {
 	return false
 }
 
-// Star makes the player invincible for the given number of steps.
+// Star makes the player invincible for the given number of steps. It does
+// not change his size: a small hero stays small under the star and after it.
 func (p *Player) Star(steps int) {
-	p.Form = FormStar
 	p.StarSec = steps
 }
+
+// HasStar reports whether star power is running.
+func (p *Player) HasStar() bool { return p.StarSec > 0 }
+
+// IsBig reports whether he is the big size (and so can smash bricks).
+func (p *Player) IsBig() bool { return p.Form != FormSmall }
 
 // Hurt applies damage. A big player shrinks and becomes briefly immune; a small
 // player dies.
 func (p *Player) Hurt(lv *level.Level) (died bool) {
-	if p.Form == FormStar || p.invuln > 0 {
+	if p.HasStar() || p.invuln > 0 {
 		return false
 	}
-	if p.Form == FormBig {
+	if p.Form != FormSmall {
 		p.applyForm(lv, FormSmall)
 		p.invuln = playerInvulnSteps
-		p.GrowFlash = 16
+		p.Shrinking = ShrinkSteps
 		return false
 	}
 	p.Die()
 	return true
 }
 
+// ShrinkSteps is how long the shrink animation holds the world still.
+const ShrinkSteps = 48
+
+// Death and respawn timing, in steps.
+const (
+	// DeathRise is the hop up when he dies.
+	DeathRise = 20
+	// DeathHang is the moment he hangs at the top, turning grey.
+	DeathHang = 30
+	// DeathBurst is when he breaks apart into pixels.
+	DeathBurst = DeathRise + DeathHang
+	// DeathScatter is how long the pixels fly apart, like smashed bricks.
+	DeathScatter = 60
+	// DeathPan is how long the camera takes to glide back to the start.
+	DeathPan = 80
+	// DeathTotal is the whole sequence; the new life starts after it.
+	DeathTotal = DeathBurst + DeathScatter + DeathPan
+
+	// RespawnGather is how long the pixels take to fly in and assemble him
+	// in mid-air above the start.
+	RespawnGather = 60
+	// RespawnFall is the drop from there onto the ground.
+	RespawnFall = 28
+	// RespawnDrop is the whole arrival.
+	RespawnDrop = RespawnGather + RespawnFall
+)
+
+// deathRiseHeight is how high the death hop goes.
+const deathRiseHeight = engine.Tile * 2
+
+// MeltSteps is how long a poisoned hero takes to melt away.
+const MeltSteps = 110
+
+// DeathScatterEnd is the step the pieces are gone and the camera may glide
+// back: after the burst for a normal death, after the melt for poison.
+func (p *Player) DeathScatterEnd() int {
+	if p.Melting {
+		return DeathBurst + MeltSteps
+	}
+	return DeathBurst + DeathScatter
+}
+
 // Die starts the death animation.
 func (p *Player) Die() {
 	p.Dead = true
 	p.deathTimer = 0
-	p.Vel = engine.Vec2{X: 0, Y: engine.FromFloat(-4)}
+	p.Melting = false
+	p.deathY0 = p.Pos.Y
+	p.DeathFacing = p.Facing
+	p.Vel = engine.Vec2{}
 	p.Form = FormSmall
+	p.StarSec = 0
+	p.Shrinking = 0
+	// Keep the feet where they were when a big hero dies small.
+	bottom := p.Pos.Y + p.H
 	p.W, p.H = SmallSize.X, SmallSize.Y
+	p.Pos.Y = bottom - p.H
+	p.deathY0 = p.Pos.Y
+}
+
+// DeathTimer is how far into the death sequence he is, in steps.
+func (p *Player) DeathTimer() int { return p.deathTimer }
+
+// trailLen is how many past positions are kept for the afterimages.
+const trailLen = 12
+
+// recordTrail notes where he is this step.
+func (p *Player) recordTrail() {
+	copy(p.trail[:], p.trail[1:])
+	p.trail[trailLen-1] = p.Pos
+	if p.trailN < trailLen {
+		p.trailN++
+	}
+}
+
+// PastPos is where he was some steps ago, or false when that is not known.
+func (p *Player) PastPos(steps int) (engine.Vec2, bool) {
+	if steps <= 0 || steps > p.trailN {
+		return engine.Vec2{}, false
+	}
+	return p.trail[trailLen-1-steps], true
 }
 
 // Invulnerable reports whether contact should be ignored.
-func (p *Player) Invulnerable() bool { return p.invuln > 0 || p.Form == FormStar }
+func (p *Player) Invulnerable() bool { return p.invuln > 0 || p.HasStar() }
 
 // update advances the player one simulation step.
 //
@@ -201,6 +295,7 @@ func (p *Player) update(lv *level.Level, in engine.Pressed) {
 		p.updateSlide(lv)
 		return
 	}
+	p.recordTrail()
 
 	if p.GrowFlash > 0 {
 		p.GrowFlash--
@@ -210,10 +305,6 @@ func (p *Player) update(lv *level.Level, in engine.Pressed) {
 	}
 	if p.StarSec > 0 {
 		p.StarSec--
-		if p.StarSec == 0 && p.Form == FormStar {
-			p.Form = FormBig
-			p.applyForm(lv, FormBig)
-		}
 	}
 
 	p.horizontal(lv, in)
@@ -293,7 +384,7 @@ func (p *Player) horizontal(lv *level.Level, in engine.Pressed) {
 	if run {
 		maxSpeed = p.T.RunMax
 	}
-	if p.Form == FormStar {
+	if p.HasStar() {
 		maxSpeed = maxSpeed + maxSpeed.Div(4)
 	}
 
@@ -384,12 +475,16 @@ func (p *Player) vertical(lv *level.Level, in engine.Pressed) {
 	}
 }
 
-// updateDeath plays the death arc: rise, fall, then leave the screen.
+// updateDeath plays his part of the death: a hop up, easing to a stop, where
+// he hangs. The renderer does the rest (grey, then the burst into pixels).
 func (p *Player) updateDeath() {
 	p.deathTimer++
-	if p.deathTimer < 30 {
-		p.Vel.Y += p.T.GravityRise.Div(2)
-		p.Pos.Y += p.Vel.Y
+	if p.Melting {
+		return // he sickens where he stands; no hop
+	}
+	if t := p.deathTimer; t <= DeathRise {
+		n := DeathRise
+		p.Pos.Y = p.deathY0 - engine.MulRatio(deathRiseHeight, n*n-(n-t)*(n-t), n*n)
 	}
 }
 

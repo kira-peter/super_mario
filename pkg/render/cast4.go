@@ -190,3 +190,12 @@ func (d drawer) standOn(a art, b *game.Body, flip bool, pal palette) {
 	bottomY := roundArt(b.Pos.Y+b.H, d.px) - d.camY
 	d.c.blitArt(a, centreX-a.width()*k/2, bottomY-len(a)*k, k, flip, pal)
 }
+
+// standOnFlipped is standOn with the drawing upside down: an enemy knocked out.
+func (d drawer) standOnFlipped(a art, b *game.Body, flip bool, pal palette) {
+	up := make(art, len(a))
+	for i := range a {
+		up[i] = a[len(a)-1-i]
+	}
+	d.standOn(up, b, flip, pal)
+}

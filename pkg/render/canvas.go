@@ -1,6 +1,8 @@
 package render
 
 import (
+	"github.com/gdamore/tcell/v2"
+
 	"super-mario/pkg/engine"
 	"super-mario/pkg/render/theme"
 )
@@ -73,14 +75,22 @@ func (c *Canvas) Draw(s Sprite, x, y int, t theme.Tokens) {
 // nearest-neighbour: at these sizes it keeps the pixel-art edges crisp, and
 // smoothing a hat into a grey blur would lose the silhouette.
 func (c *Canvas) DrawSized(s Sprite, x, y, w, h int, t theme.Tokens) {
-	if (w == s.W && h == s.H) || w <= 0 || h <= 0 {
-		c.Draw(s, x, y, t)
-		return
+	c.DrawTinted(s, x, y, w, h, t, nil, false)
+}
+
+// DrawTinted is DrawSized with every colour passed through tint (nil leaves
+// them alone), and optionally upside down.
+func (c *Canvas) DrawTinted(s Sprite, x, y, w, h int, t theme.Tokens, tint func(tcell.Color) tcell.Color, flipV bool) {
+	if w <= 0 || h <= 0 {
+		w, h = s.W, s.H
 	}
 	for dy := 0; dy < h; dy++ {
 		sy := dy * s.H / h
 		if sy >= s.H {
 			sy = s.H - 1
+		}
+		if flipV {
+			sy = s.H - 1 - sy
 		}
 		row := s.Rows[sy]
 		for dx := 0; dx < w; dx++ {
@@ -95,6 +105,11 @@ func (c *Canvas) DrawSized(s Sprite, x, y, w, h int, t theme.Tokens) {
 			col, ok := SlotColor(t, slot)
 			if !ok {
 				continue
+			}
+			if tint != nil {
+				if tc, ok := col.(tcell.Color); ok {
+					col = tint(tc)
+				}
 			}
 			c.Set(x+dx, y+dy, col)
 		}

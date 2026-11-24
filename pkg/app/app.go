@@ -398,6 +398,9 @@ func (a *App) startRun() {
 	a.sm.ToTitle()
 	a.sm.StartRun()
 	a.clock.Reset()
+	// He arrives the same way as after a lost life: pixels assembling in the
+	// air above the start, then the drop.
+	a.world.StartEntrance()
 	// Every run gets its own clouds.
 	a.scene.Sky = render.NewSky(time.Now().UnixNano())
 }
@@ -698,6 +701,8 @@ func (a *App) drawHUD(w, h int) {
 		x++
 	}
 	a.drawCoinPlus(w, row)
+	a.drawLifePlus(w, row)
+	a.drawStarCountdown(w, row)
 	if a.notice != "" && h > 2 {
 		nstyle := tcell.StyleDefault.Foreground(a.theme.HudMuted).Background(a.theme.Sky)
 		x = 0
@@ -708,6 +713,42 @@ func (a *App) drawHUD(w, h int) {
 			a.screen.SetContent(x, row+1, r, nil, nstyle)
 			x++
 		}
+	}
+}
+
+// drawLifePlus shows the "+1" by the lives counter, in red, once a 1UP heart
+// has landed on it, in the space the status line keeps after "♥×N".
+func (a *App) drawLifePlus(w, row int) {
+	for _, p := range a.world.LifePlus {
+		st, ok := render.LifePlusStyle(a.theme, p.Age)
+		if !ok {
+			continue
+		}
+		text := fmt.Sprintf("+%d", p.Amount)
+		x := render.LivesCounterCol + len([]rune(fmt.Sprintf("♥×%d", a.world.LivesShown())))
+		for _, r := range text {
+			if x >= 0 && x < w {
+				a.screen.SetContent(x, row, r, nil, st)
+			}
+			x++
+		}
+	}
+}
+
+// drawStarCountdown shows how long star power has left, in the middle of the
+// status line, between the coins and the world.
+func (a *App) drawStarCountdown(w, row int) {
+	text, col, ok := render.StarCountdown(a.world, a.theme)
+	if !ok {
+		return
+	}
+	st := tcell.StyleDefault.Foreground(col).Background(a.theme.Sky).Bold(true)
+	x := (w - len([]rune(text))) / 2
+	for _, r := range text {
+		if x >= 0 && x < w {
+			a.screen.SetContent(x, row, r, nil, st)
+		}
+		x++
 	}
 }
 

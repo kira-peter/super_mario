@@ -1471,7 +1471,7 @@ function startPlay(fromHere) {
   if (res.issues) { toast(t('toast.noPlay', { m: issueText(res.issues[0]) }), 5000, true); return; }
   if (res.notice) toast(t('toast.noFoothold'), 3000);
 
-  S.playing = { keys: 0, last: performance.now(), acc: 0, raf: 0 };
+  S.playing = { keys: 0, last: performance.now(), acc: 0, raf: 0, steps: 0 };
   $('play-canvas').hidden = false; $('play-hud').hidden = false;
   canvas.style.visibility = 'hidden';
   document.activeElement?.blur();
@@ -1486,7 +1486,7 @@ function playFrame(now) {
   const steps = Math.floor(P.acc / (1000 / 60));
   P.acc -= steps * (1000 / 60);
   let end = '';
-  if (steps > 0) end = mario.step(P.keys, Math.min(steps, 5));
+  if (steps > 0) { end = mario.step(P.keys, Math.min(steps, 5)); P.steps += Math.min(steps, 5); }
   const f = mario.frame();
   if (f) paintPlay(f);
   if (end) { stopPlay(end); return; }
@@ -1858,6 +1858,7 @@ globalThis.__editor = {
   view: () => ({ ...S.view }),
   playing: () => !!S.playing,
   playKeys: () => S.playing ? S.playing.keys : -1,
+  playSteps: () => S.playing ? S.playing.steps : -1,
   lastRun: () => S.lastRun || null,
   selected: () => ({ tool: S.tool, selected: S.selected ? { ...S.selected } : null }),
   where: () => ({ source: S.source, target: targetSource(), openedAs: S.openedAs, path: savePath() }),

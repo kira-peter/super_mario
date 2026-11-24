@@ -46,7 +46,9 @@ const (
 	CoinPlusSteps = 45
 	// coinPlusMerge is how young a "+1" must be for a landing coin to add to it.
 	coinPlusMerge = 12
-	// goldStagger spaces out the gold mushroom's coins so they fly in a line.
+	// goldStagger spaced out the gold mushroom's coins when they flew one by
+	// one; the gold mushroom now sends a single big coin, but tests still
+	// refer to it.
 	goldStagger = 4
 )
 
@@ -99,6 +101,15 @@ func (w *World) updateCoinFX() {
 		}
 	}
 	w.CoinPlus = plus
+
+	lp := w.LifePlus[:0]
+	for _, p := range w.LifePlus {
+		p.Age++
+		if p.Age < CoinPlusSteps {
+			lp = append(lp, p)
+		}
+	}
+	w.LifePlus = lp
 }
 
 // landCoin shows a coin arriving at the counter.
@@ -114,7 +125,7 @@ func (w *World) landCoin() {
 // CoinsShown is the coin count the counter should show: the coins collected,
 // less the ones still flying to it.
 func (w *World) CoinsShown() int {
-	n := w.Score.Coins - len(w.CoinFX)
+	n := w.Score.Coins - len(w.CoinFX) - w.goldPending
 	for n < 0 {
 		// A coin in flight carried the count over a hundred; until it lands,
 		// show the count from before.

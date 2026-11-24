@@ -53,6 +53,10 @@ type World struct {
 	// CoinFX are coins flying to the counter, CoinPlus the "+1" shown there.
 	CoinFX   []*CoinFX
 	CoinPlus []*CoinPlus
+	// LifePlus is the "+1" shown at the lives counter when a 1UP heart lands.
+	LifePlus []*CoinPlus
+	// Effects are the pickup effects: the 1UP burst, the poison mist.
+	Effects []*Effect
 
 	// TimeLeft is the countdown in seconds.
 	TimeLeft int
@@ -117,7 +121,24 @@ type World struct {
 	// lastGround is where the player last stood, for the invincible
 	// playtest's rescue from a pit.
 	lastGround engine.Vec2
+
+	// deathPanFrom is where the camera was when it started gliding back to the
+	// start after a death, or -1 before the glide.
+	deathPanFrom engine.Fixed
+	// respawnLand is where he lands at the end of the drop from the sky.
+	respawnLand engine.Fixed
+	// respawnFrom is where he is assembled in mid-air before the drop.
+	respawnFrom engine.Fixed
+	// goldPending is coins from gold mushrooms still on their way to the
+	// counter, not yet shown.
+	goldPending int
+	// lifePending is extra lives whose heart is still flying to the counter.
+	lifePending int
 }
+
+// LivesShown is the lives count the status line should show: the lives the
+// player has, less any whose heart is still on its way to the counter.
+func (w *World) LivesShown() int { return w.Score.Lives - w.lifePending }
 
 // Life is which life of the run is being played, counting from 0.
 func (w *World) Life() int { return w.life }
@@ -219,6 +240,10 @@ func (w *World) Reset() {
 	w.Bumps = nil
 	w.CoinFX = nil
 	w.CoinPlus = nil
+	w.Effects = nil
+	w.goldPending = 0
+	w.LifePlus = nil
+	w.lifePending = 0
 	w.FlagBonus = nil
 	w.Cleared = false
 	w.ClearedAt = 0
@@ -260,15 +285,37 @@ func (w *World) Step() {
 
 	switch w.SM.Current() {
 	case engine.StatePlaying:
+		// The shrink after a hit holds everything still while he flickers.
+		if w.Player.Shrinking > 0 {
+			w.Player.Shrinking--
+			w.updateEffects()
+			return
+		}
+		// A new life starts with him dropping in from the sky.
+		if w.Player.Respawning > 0 {
+			w.stepRespawn()
+			return
+		}
 		w.stepPlaying(in)
 	case engine.StateDying:
 		w.Player.update(w.Level, in)
-		if w.Player.deathTimer >= 90 {
+		w.updateEffects()
+		t := w.Player.deathTimer
+		if end := w.Player.DeathScatterEnd(); t > end {
+			// The camera glides back to the start of the level.
+			if w.deathPanFrom < 0 {
+				w.deathPanFrom = w.CameraX
+			}
+			f := t - end
+			w.CameraX = w.deathPanFrom - engine.MulRatio(w.deathPanFrom-w.startCameraX(), ease(f, DeathPan), 1000)
+		}
+		if t >= w.Player.DeathScatterEnd()+DeathPan {
 			if w.Score.Lives > 1 {
 				w.Score.Lives--
 				w.SM.Respawn()
 				w.life++
 				w.Reset()
+				w.startRespawnDrop()
 			} else {
 				w.Score.Lives = 0
 				w.SM.GameOver()
@@ -276,6 +323,98 @@ func (w *World) Step() {
 		}
 	case engine.StateFlagpole:
 		w.stepFlagpole()
+	}
+}
+
+// ease is the camera's glide from 0 to 1000 over n steps: slow out of the
+// start, slow into the end.
+func ease(f, n int) int {
+	if f <= 0 {
+		return 0
+	}
+	if f >= n {
+		return 1000
+	}
+	x := f * 1000 / n
+	// smoothstep: 3x² - 2x³
+	return (3*x*x*1000 - 2*x*x*x) / 1000000
+}
+
+// startCameraX is where the camera rests at the start of the level.
+func (w *World) startCameraX() engine.Fixed {
+	x := engine.Fixed(w.Level.SpawnX)*engine.Tile - w.ViewW/2
+	if lvW := engine.Fixed(w.Level.Width) * engine.Tile; x > lvW-w.ViewW {
+		x = lvW - w.ViewW
+	}
+	if x < 0 {
+		x = 0
+	}
+	return x
+}
+
+// respawnHover is how high above the spawn he is assembled, in game units.
+const respawnHover = engine.Tile * 4
+
+// StartEntrance plays the arrival at the start of a level: his pixels fly in
+// and assemble him in mid-air above the spawn, then he drops onto it. The same
+// arrival follows every lost life.
+func (w *World) StartEntrance() { w.startRespawnDrop() }
+
+// startRespawnDrop places him where his pixels will assemble, in mid-air above
+// the spawn; the renderer flies the pixels in, then he drops onto the spot.
+func (w *World) startRespawnDrop() {
+	p := w.Player
+	w.respawnLand = p.Pos.Y
+	p.Pos.Y = w.respawnLand - respawnHover
+	if top := w.CameraY + engine.Tile; p.Pos.Y < top {
+		p.Pos.Y = top
+	}
+	w.respawnFrom = p.Pos.Y
+	p.Vel = engine.Vec2{}
+	p.Respawning = RespawnDrop
+}
+
+// RespawnGathering reports how far the pixels are through flying in, from 0
+// to RespawnGather, or -1 when he is not being assembled.
+func (w *World) RespawnGathering() int {
+	p := w.Player
+	if p.Respawning <= 0 {
+		return -1
+	}
+	f := RespawnDrop - p.Respawning
+	if f >= RespawnGather {
+		return -1
+	}
+	return f
+}
+
+// stepRespawn assembles him in mid-air, then drops him onto the spawn with a
+// small bounce. Nothing else moves until he is down.
+func (w *World) stepRespawn() {
+	p := w.Player
+	p.Respawning--
+	f := RespawnDrop - p.Respawning
+	if f <= RespawnGather {
+		// Hanging where the pixels gather, bobbing very slightly.
+		p.Pos.Y = w.respawnFrom
+		return
+	}
+	g := f - RespawnGather
+	n := RespawnFall
+	land := n * 3 / 4
+	if g <= land {
+		// Accelerating down onto the spot.
+		p.Pos.Y = w.respawnFrom + engine.MulRatio(w.respawnLand-w.respawnFrom, g*g, land*land)
+	} else {
+		// A little hop on landing.
+		h := engine.Tile / 3
+		m := n - land
+		k := g - land
+		p.Pos.Y = w.respawnLand - engine.MulRatio(h, 4*k*(m-k), m*m)
+	}
+	if p.Respawning == 0 {
+		p.Pos.Y = w.respawnLand
+		p.Grounded = true
 	}
 }
 
@@ -294,6 +433,7 @@ func (w *World) stepPlaying(in engine.Pressed) {
 	w.updateParticles()
 	w.updateBumps()
 	w.updateCoinFX()
+	w.updateEffects()
 
 	w.resolveEnemyContacts()
 	w.resolveItemContacts()
@@ -380,6 +520,28 @@ func (w *World) updateEnemy(e *Enemy) {
 		}
 	}
 	e.update(w.Level, w.T)
+	// Two walkers that meet turn round, as they do in the original; a shell
+	// does its own thing (it knocks the other out instead).
+	if e.Knocked || e.Squashed > 0 || (e.Kind == EnemyKoopa && e.Shell != KoopaWalking) {
+		return
+	}
+	for _, o := range w.Enemies {
+		if o == e || !o.Active || o.Removed || o.Knocked || o.Squashed > 0 {
+			continue
+		}
+		if o.Kind == EnemyKoopa && o.Shell != KoopaWalking {
+			continue
+		}
+		if !e.Overlaps(&o.Body) {
+			continue
+		}
+		// Each faces away from the other.
+		if e.CenterX() < o.CenterX() {
+			e.Vel.X, e.Facing = -e.walkSpeed(w.T), -1
+		} else {
+			e.Vel.X, e.Facing = e.walkSpeed(w.T), 1
+		}
+	}
 }
 
 // resolveEnemyContacts handles player/enemy and shell/enemy overlaps.
@@ -389,29 +551,36 @@ func (w *World) resolveEnemyContacts() {
 		return
 	}
 
-	// A sliding shell wipes out any enemy it touches.
+	// A sliding shell knocks out any enemy it touches, another shell included.
 	for _, shell := range w.Enemies {
-		if shell.Shell != KoopaSliding || shell.Removed {
+		if shell.Shell != KoopaSliding || shell.Removed || shell.Knocked {
 			continue
 		}
 		for _, other := range w.Enemies {
-			if other == shell || other.Removed || other.Squashed > 0 {
+			if other == shell || other.Removed || other.Knocked || other.Squashed > 0 {
 				continue
 			}
 			if shell.Overlaps(&other.Body) {
-				other.Squashed = 30
-				other.Vel = engine.Vec2{}
-				w.Score.add(stompScore(w.combo + 1))
+				other.knockOut(shell.CenterX())
 				w.combo++
+				w.scorePop(other, stompScore(w.combo))
 			}
 		}
 	}
 
 	for _, e := range w.Enemies {
-		if e.Removed || e.Squashed > 0 || e.Grace > 0 {
+		if e.Removed || e.Knocked || e.Squashed > 0 || e.Grace > 0 {
 			continue
 		}
 		if !p.Overlaps(&e.Body) {
+			continue
+		}
+
+		// Under a star everything he touches is knocked out.
+		if p.HasStar() {
+			e.knockOut(p.CenterX())
+			w.combo++
+			w.scorePop(e, stompScore(w.combo))
 			continue
 		}
 
@@ -426,6 +595,17 @@ func (w *World) resolveEnemyContacts() {
 		}
 		w.hurtPlayer()
 	}
+}
+
+// scorePop adds points and floats the number up from where they were won.
+func (w *World) scorePop(e *Enemy, points int) {
+	w.Score.add(points)
+	w.Parts = append(w.Parts, &Particle{
+		Pos:  engine.Vec2{X: e.CenterX(), Y: e.Pos.Y},
+		Life: 40,
+		Kind: 's',
+		Text: itoa(points),
+	})
 }
 
 // whichShellToKick kicks a resting shell the player walked into, instead of
@@ -533,20 +713,107 @@ func (w *World) resolveItemContacts() {
 			p.Star(600)
 		case ItemOneUp:
 			w.Score.Lives++
+			w.lifePending++
+			w.Effects = append(w.Effects, &Effect{
+				Kind: EffectOneUp, Pos: engine.Vec2{X: p.CenterX(), Y: p.Pos.Y + p.H},
+				Big: p.IsBig(), Facing: p.Facing,
+			})
 		case ItemGold:
 			w.Score.addCoins(goldCoins)
 			w.Score.add(goldCoins * coinScore)
-			at := engine.Vec2{X: it.CenterX(), Y: it.Pos.Y + it.H/2}
-			for i := 0; i < goldCoins; i++ {
-				w.flyCoin(at, i*goldStagger)
-			}
+			// His pixels gather into a gold coin that floats to the counter;
+			// the coins are counted as it lands, so they are held back in the
+			// counter until then (CoinsShown subtracts coins still in flight).
+			w.Effects = append(w.Effects, &Effect{
+				Kind: EffectGold, Pos: engine.Vec2{X: p.CenterX(), Y: p.Pos.Y + p.H},
+				Big: p.IsBig(), Facing: p.Facing,
+			})
+			w.goldPending += goldCoins
 		case ItemPoison:
 			// Same as touching an enemy, including the grace period and
-			// invincibility protecting him from it.
-			if !p.Invulnerable() {
-				w.hurtPlayer()
+			// invincibility protecting him from it. The purple mist shows
+			// either way, so it is clear what he touched.
+			w.Effects = append(w.Effects, &Effect{Kind: EffectPoison, Pos: engine.Vec2{X: p.CenterX(), Y: p.Pos.Y + p.H/2}})
+			if !p.Invulnerable() && !w.playtest.Invincible {
+				p.Poisoned = PoisonSteps
+				if p.Form == FormSmall {
+					// Small, the poison kills him: he sickens, then melts away.
+					w.killPlayer()
+					p.Melting = true
+				} else {
+					w.hurtPlayer()
+				}
 			}
 		}
+	}
+}
+
+// EffectKind is which pickup effect is playing.
+type EffectKind int
+
+const (
+	// EffectOneUp is the heart of an extra life.
+	EffectOneUp EffectKind = iota
+	// EffectPoison is the purple mist of a poison mushroom.
+	EffectPoison
+	// EffectGold is the gold coin of a gold mushroom.
+	EffectGold
+)
+
+// EffectSteps is how long the poison effect plays.
+const EffectSteps = 60
+
+// OneUpSteps is how long the extra-life heart (and the gold coin) takes:
+// assemble, hang a moment, then a quick flight to the counter.
+const OneUpSteps = 130
+
+// PoisonSteps is how long he shows sick after a poison mushroom.
+const PoisonSteps = 90
+
+// Effect is a pickup effect drawn around where it happened. It is decoration
+// only: nothing reads it back.
+type Effect struct {
+	Kind EffectKind
+	// Pos is where it started, in game units: for the 1UP, his feet.
+	Pos engine.Vec2
+	// Big and Facing are the pose he had, so the 1UP can copy his drawing.
+	Big    bool
+	Facing int
+	// Age counts up to the effect's length.
+	Age int
+}
+
+// Steps is how long this effect plays.
+func (e *Effect) Steps() int {
+	if e.Kind == EffectOneUp || e.Kind == EffectGold {
+		return OneUpSteps
+	}
+	return EffectSteps
+}
+
+// updateEffects ages the pickup effects and drops the finished ones.
+func (w *World) updateEffects() {
+	live := w.Effects[:0]
+	for _, e := range w.Effects {
+		e.Age++
+		if e.Age < e.Steps() {
+			live = append(live, e)
+			continue
+		}
+		if e.Kind == EffectGold {
+			// The coin has reached the counter: show the coins it brought.
+			w.goldPending -= goldCoins
+			w.CoinPlus = append(w.CoinPlus, &CoinPlus{Amount: goldCoins})
+		}
+		if e.Kind == EffectOneUp {
+			// The heart has reached the lives counter: show the life it brought.
+			w.lifePending--
+			w.LifePlus = append(w.LifePlus, &CoinPlus{Amount: 1})
+		}
+	}
+	w.Effects = live
+	if w.Player.Poisoned > 0 {
+		w.Player.Poisoned--
 	}
 }
 
@@ -588,7 +855,7 @@ func (w *World) handleBump() {
 	t := w.Level.TileAt(col, row)
 	switch t.Kind {
 	case level.KindBreakable:
-		if w.Player.Form == FormBig || w.Player.Form == FormStar {
+		if w.Player.IsBig() {
 			w.Level.SetTile(col, row, level.Tile{Kind: level.KindEmpty, Glyph: ' '})
 			w.spawnShards(col, row)
 			w.Score.add(50)
@@ -729,6 +996,7 @@ func (w *World) killPlayer() {
 	w.Player.Die()
 	w.SM.Die()
 	w.combo = 0
+	w.deathPanFrom = -1
 }
 
 // CameraVerticalMargin is how far above or below its resting position the

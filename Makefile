@@ -2,28 +2,15 @@
 
 BIN := build/super-mario.exe
 WEB := pkg/editor/web
-GOROOT := $(shell go env GOROOT)
-
-# The version comes from the VERSION file, the one thing a release edits; see
-# VERSIONING.md. The commit is what git says, when git is available. Both are
-# compiled in with -ldflags, so the binary knows what it is; a plain `go build`
-# without the Makefile reports pkg/version.Default instead.
-# tr strips any carriage return a CRLF checkout would leave (\015 is CR,
-# written as an escape so this file holds no raw control character); $(strip)
-# drops the newline. .gitattributes keeps the file LF regardless.
-VERSION := $(strip $(shell tr -d '\015' < VERSION))
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
-LDFLAGS := -X super-mario/pkg/version.Number=$(VERSION) -X super-mario/pkg/version.Commit=$(COMMIT)
 
 # The editor runs the game's own Go code in the browser. Its WebAssembly build
 # and the matching wasm_exec.js are generated, not committed, and embedded into
 # the game binary, so build the wasm first.
-build: wasm
-	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/super-mario
+build:
+	go run ./tools/build
 
 wasm:
-	GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o $(WEB)/editor.wasm ./cmd/wasm
-	cp "$(GOROOT)/lib/wasm/wasm_exec.js" $(WEB)/wasm_exec.js
+	go run ./tools/build -wasm-only
 
 test:
 	go test ./...
@@ -55,4 +42,4 @@ fmt-levels:
 
 # Drive the level editor in headless Chrome (needs Chrome and Node, no npm).
 e2e: build
-	sh tools/editor-e2e/run.sh
+	node tools/editor-e2e/run.mjs

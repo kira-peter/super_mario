@@ -23,6 +23,10 @@ type Config struct {
 	Catalog *catalog.Catalog
 	// Open is a level to open first, as a catalog key.
 	Open string
+	// DraftDir overrides the per-catalog directory in the user's app data.
+	DraftDir string
+	// NoBrowser leaves opening the URL to the caller.
+	NoBrowser bool
 	// Browser opens the page; nil uses the system's default browser.
 	Browser func(url string) error
 	// Out is where the address and messages are printed; nil prints nothing.
@@ -51,7 +55,11 @@ func Start(c Config) (*Service, error) {
 		return nil, err
 	}
 	addr := ln.Addr().String()
-	s := &Server{Catalog: c.Catalog, Open: c.Open}
+	dir := c.DraftDir
+	if dir == "" {
+		dir = defaultDraftDir(c.Catalog)
+	}
+	s := &Server{Catalog: c.Catalog, Open: c.Open, draftDir: dir}
 	svc := &Service{
 		URL:  "http://" + addr + "/",
 		srv:  &http.Server{Handler: s.Handler(addr), ReadHeaderTimeout: 10 * time.Second},
@@ -111,8 +119,10 @@ func Run(ctx context.Context, c Config) error {
 	if open == nil {
 		open = OpenBrowser
 	}
-	if err := open(url); err != nil {
-		fmt.Fprintf(c.Out, "没能自动打开浏览器（%v），请手动访问上面的地址。\n", err)
+	if !c.NoBrowser {
+		if err := open(url); err != nil {
+			fmt.Fprintf(c.Out, "没能自动打开浏览器（%v），请手动访问上面的地址。\n", err)
+		}
 	}
 
 	select {

@@ -1,6 +1,7 @@
 package render
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
@@ -17,6 +18,63 @@ func styledWorld(t *testing.T, st level.Style) *game.World {
 	w := castWorld(t)
 	w.Level.Style = st
 	return w
+}
+
+func TestIndoorScenesKeepCloudsOut(t *testing.T) {
+	for _, id := range []string{"lava", "underground", "grassland"} {
+		t.Run(id, func(t *testing.T) {
+			w := styledWorld(t, level.Style{Theme: id})
+			w.SetViewport(engine.Tile*35, engine.Tile*15)
+			scene := ForLevel(theme.Ink, "ink", w.Level, theme.TrueColor)
+			clear := scene.Draw(w, 4)
+			scene.Sky = NewSky(1)
+			cloudy := scene.Draw(w, 4)
+			if same := slices.Equal(clear.Px, cloudy.Px); same != (id != "grassland") {
+				t.Errorf("clouds changed the frame: %t", !same)
+			}
+		})
+	}
+}
+
+func TestBigHeroArtStaysBelowCastleRoof(t *testing.T) {
+	lv, err := level.LoadEmbedded("1-4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sm := engine.NewStateMachine()
+	sm.StartRun()
+	w := game.NewWorld(lv, &game.Default, sm, 3)
+	w.SetPlaytest(game.PlaytestOptions{StartBig: true})
+	if !w.StartAtColumn(45) {
+		t.Fatal("missing foothold under the roof")
+	}
+	w.SetViewport(engine.Tile*24, engine.Tile*15)
+	w.Input.KeyDown(engine.KeySpace)
+	for range 30 {
+		w.Step()
+		if w.Player.LastHit.HitCeiling {
+			break
+		}
+	}
+	hit := w.Player.LastHit
+	if !hit.HitCeiling || w.Player.Vel.Y != 0 || lv.TileAt(hit.CeilingX, hit.CeilingY).Glyph != 'H' {
+		t.Fatalf("expected to stop at the solid roof, got %+v", hit)
+	}
+	scene := ForLevel(theme.Ink, "ink", lv, theme.TrueColor)
+	for _, px := range []int{4, 8, 12, 16} {
+		w.Player.Hidden = false
+		hero := scene.Draw(w, px)
+		w.Player.Hidden = true
+		background := scene.Draw(w, px)
+		roof := (hit.CeilingY+1)*px - WorldToArtScaled(w.CameraY, px)
+		if end := roof * hero.W; !slices.Equal(hero.Px[:end], background.Px[:end]) || slices.Equal(hero.Px[end:], background.Px[end:]) {
+			t.Errorf("at %d pixels per tile, expected the hero to draw only below the roof", px)
+		}
+	}
+	w.Step()
+	if lv.TileAt(hit.CeilingX, hit.CeilingY).Glyph != 'H' || len(w.Bumps) != 0 {
+		t.Error("the hard roof moved or broke after the ceiling hit")
+	}
 }
 
 // TestUnstyledLevelIsPixelIdentical is the "old levels look the same" rule: a

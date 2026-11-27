@@ -25,7 +25,7 @@ func (w *World) SetPlaytest(o PlaytestOptions) {
 // applyPlaytestStart is run at the start of every life.
 func (w *World) applyPlaytestStart() {
 	if w.playtest.StartBig && w.Player.Form == FormSmall {
-		w.Player.applyForm(w.Level, FormBig)
+		w.Player.growPending = !w.Player.applyForm(w.Level, FormBig)
 	}
 }
 
@@ -60,15 +60,16 @@ func (w *World) StartAtColumn(col int) bool {
 	for row := 0; row < w.Level.Height-1; row++ {
 		if !w.Level.SolidAt(col, row) && w.Level.SolidAt(col, row+1) {
 			form := w.Player.Form
-			w.Player = NewPlayer(w.T, col, row)
-			if form != FormSmall {
-				w.Player.applyForm(w.Level, form)
+			p := NewPlayer(w.T, col, row)
+			if form != FormSmall && !p.applyForm(w.Level, form) {
+				continue
 			}
 			// A big body needs two open rows; if this spot only has one,
 			// keep looking lower down.
-			if overlapsSolid(w.Level, w.Player.Rect()) {
+			if overlapsSolid(w.Level, p.Rect()) {
 				continue
 			}
+			w.Player = p
 			w.lastGround = w.Player.Pos
 			w.updateCamera(true)
 			return true

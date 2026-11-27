@@ -1,12 +1,15 @@
 package editor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 
 	"super-mario/pkg/catalog"
 	"super-mario/pkg/level"
@@ -23,7 +26,9 @@ type Server struct {
 	// Catalog is where levels are read and written.
 	Catalog *catalog.Catalog
 	// Open is the level to show first, as a catalog key, if any.
-	Open string
+	Open     string
+	draftDir string
+	saveMu   sync.Mutex
 
 	// addr is what the server listens on, for checking Host and Origin.
 	addr string
@@ -49,6 +54,9 @@ func (s *Server) Handler(addr string) http.Handler {
 	mux.HandleFunc("GET /api/levels/{source}/{id}", s.read)
 	mux.HandleFunc("PUT /api/levels/{source}/{id}", s.write)
 	mux.HandleFunc("GET /api/info", s.info)
+	mux.HandleFunc("GET /api/drafts", s.readDraft)
+	mux.HandleFunc("PUT /api/drafts/{id}", s.writeDraft)
+	mux.HandleFunc("DELETE /api/drafts/{id}", s.deleteDraft)
 	mux.Handle("GET /", http.FileServerFS(Web()))
 	return s.guard(mux)
 }
@@ -150,7 +158,13 @@ func (s *Server) read(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("ETag", levelRevision(data))
 	w.Write(data)
+}
+
+func levelRevision(data []byte) string {
+	sum := sha256.Sum256(data)
+	return `"` + hex.EncodeToString(sum[:]) + `"`
 }
 
 // SaveRequest is what the editor sends to save.
@@ -160,9 +174,10 @@ type SaveRequest struct {
 	// Overwrite confirms replacing a level that is not the one opened. The
 	// editor asks the designer first and only then sets it.
 	Overwrite bool `json:"overwrite"`
-	// OpenedAs is the catalog key the level was opened from, if any. Saving
-	// back to it never needs confirming.
+	// OpenedAs is the catalog key the level was opened from, if any.
 	OpenedAs string `json:"openedAs"`
+	// Revision identifies the exact version read or confirmed for replacement.
+	Revision string `json:"revision"`
 }
 
 // saveError is a refusal the page can translate: a code, and details for the
@@ -191,10 +206,7 @@ func (s *Server) write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req SaveRequest
-	body, err := io.ReadAll(io.LimitReader(r.Body, 4<<20))
-	if err == nil {
-		err = json.Unmarshal(body, &req)
-	}
+	err := readJSON(w, r, &req)
 	if err != nil {
 		saveError(w, http.StatusBadRequest, "bad-request", map[string]string{"detail": err.Error()})
 		return
@@ -202,13 +214,32 @@ func (s *Server) write(w http.ResponseWriter, r *http.Request) {
 
 	// The server checks again whatever the page says: the file must load in
 	// the game.
-	if _, err := level.Format([]byte(req.Level)); err != nil {
+	formatted, err := level.Format([]byte(req.Level))
+	if err != nil {
 		saveError(w, http.StatusUnprocessableEntity, "invalid-level", map[string]string{"detail": err.Error()})
 		return
 	}
 
-	if s.Catalog.Exists(src, id) && req.OpenedAs != catalog.Key(src, id) && !req.Overwrite {
-		saveError(w, http.StatusConflict, "exists", map[string]string{"id": id, "source": string(src)})
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+	key := catalog.Key(src, id)
+	current, err := s.Catalog.Read(src, id)
+	switch {
+	case err == nil:
+		revision := levelRevision(current)
+		if req.OpenedAs != key && !req.Overwrite {
+			saveError(w, http.StatusConflict, "exists", map[string]string{"id": id, "source": string(src), "revision": revision})
+			return
+		}
+		if revision != req.Revision {
+			saveError(w, http.StatusConflict, "level-changed", nil)
+			return
+		}
+	case !errors.Is(err, catalog.ErrNotFound):
+		saveError(w, http.StatusInternalServerError, "write-failed", map[string]string{"detail": err.Error()})
+		return
+	case req.OpenedAs == key || req.Overwrite:
+		saveError(w, http.StatusConflict, "level-changed", nil)
 		return
 	}
 	path, err := s.Catalog.Write(src, id, []byte(req.Level))
@@ -216,11 +247,18 @@ func (s *Server) write(w http.ResponseWriter, r *http.Request) {
 		saveError(w, http.StatusInternalServerError, "write-failed", map[string]string{"detail": err.Error()})
 		return
 	}
-	formatted, _ := s.Catalog.Read(src, id)
 	writeJSON(w, http.StatusOK, map[string]string{
 		"id": id, "source": string(src), "key": catalog.Key(src, id),
-		"path": path, "text": string(formatted),
+		"path": path, "text": string(formatted), "revision": levelRevision(formatted),
 	})
+}
+
+func readJSON(w http.ResponseWriter, r *http.Request, v any) error {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4<<20))
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(body, v)
 }
 
 func writeJSON(w http.ResponseWriter, code int, v interface{}) {

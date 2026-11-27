@@ -28,6 +28,10 @@ func Web() fs.FS {
 // HasWasm reports whether this binary was built with the editor's WebAssembly
 // module. A binary from a plain `go build`, without `make build`, lacks it.
 func HasWasm() bool {
-	st, err := fs.Stat(Web(), "editor.wasm")
-	return err == nil && st.Size() > 0
+	for _, name := range []string{"editor.wasm", "wasm_exec.js"} {
+		if st, err := fs.Stat(Web(), name); err != nil || st.Size() == 0 {
+			return false
+		}
+	}
+	return true
 }

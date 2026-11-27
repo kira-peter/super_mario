@@ -210,7 +210,7 @@ func cloudPalette(t theme.Tokens) palette {
 
 // clouds draws the sky's clouds behind everything else.
 func (d drawer) clouds(w *game.World) {
-	if d.s.Sky == nil {
+	if d.s.Sky == nil || w.Level.Style.Theme == "lava" || w.Level.Style.Theme == "underground" {
 		return
 	}
 	k := d.castScale()

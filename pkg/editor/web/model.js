@@ -51,6 +51,9 @@ export const inside = (lv, x, y) => x >= 0 && x < lv.width && y >= 0 && y < HEIG
 /** Parse the game's level file text into a document. */
 export function fromFile(text) {
   const f = JSON.parse(text);
+  if (f.height !== HEIGHT || f.rows?.length !== HEIGHT) {
+    throw new RangeError('unsupported level height');
+  }
   const lv = blank(f.width);
   lv.name = f.name || ''; lv.world = f.world || '';
   lv.timeLimit = f.timeLimit || 400;

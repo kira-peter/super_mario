@@ -19,11 +19,11 @@
 ## 快速开始
 
 ```bash
-make build
+go run ./tools/build
 ./build/super-mario.exe
 ```
 
-没有 `make` 也可以直接 `go run ./cmd/super-mario`（这样编辑器不可用，见下文）。
+`make build` 也可执行同一构建。只运行终端游戏可用 `go run ./cmd/super-mario`。
 
 标题菜单：开始游戏、选择关卡、设计关卡、排行榜、操作说明。
 
@@ -157,7 +157,7 @@ pkg/catalog       内置与本地关卡目录
 pkg/save          排行榜存档
 ```
 
-版本号写在 `VERSION`，规则见 [VERSIONING.md](VERSIONING.md)。
+每次提交按实际改动更新 `VERSION`。运行 `./build/super-mario.exe version` 查看当前 exe 的版本，升版规则见 [VERSIONING.md](VERSIONING.md)。
 
 ## 已知限制
 

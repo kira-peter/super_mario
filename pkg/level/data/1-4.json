@@ -4,7 +4,7 @@
   "width": 176,
   "height": 15,
   "timeLimit": 300,
-  "meta": {"title": "熔岩城堡", "author": "super-mario", "description": "低矮的岩顶压着头，脚下是熔岩坑；最后一座砖桥上有两只乌龟守着。", "difficulty": 4},
+  "meta": {"title": "熔岩城堡", "author": "super-mario", "description": "先练短跳，再助跑穿过低矮岩顶；终点前有两只乌龟守着错层砖桥。", "difficulty": 4},
   "style": {"theme": "lava"},
   "spawn": {"x": 2, "y": 12},
   "flag": {"x": 162, "topY": 2, "bottomY": 12},
@@ -12,18 +12,18 @@
     "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH                    ",
     "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH                    ",
     "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH      T             ",
-    "                           HHH              HHH     HHH           HHH                   HHH             HHHH          HHH                                         F             ",
-    "                           HHH              HHH     HHH           HHH                   HHH             HHHH          HHH                                         F             ",
-    "                           HHH              HHH     HHH           HHH                   HHH             HHHH          HHH                                         F             ",
-    "                           HHH              HHH     HHH           HHH    ?              HHH             HHHH          HHH                                         F             ",
-    "                           HHH              HHH                   HHH                   HHH             HHHH                                                      F             ",
+    "                           HHH              HHH   HHHHH           HHH                   HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH   HHHHH           HHH                   HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH   HHHHH           HHH                   HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH   HHHHH           HHH    ?              HHH             HHHH          HHH                                         F             ",
+    "                           HHH              HHH   HHHHH           HHH                   HHH             HHHH                                                      F             ",
     "                                            HHH                   HHH                                   HHHH                                                      F             ",
     "          ?    ?                                                                                                                                                  F             ",
-    "                                                                        HHH                                   HHH                                                 F             ",
-    "                                        HHH                             HHH                                   HHH                                                 F             ",
-    "                                        HHH                             HHH                                   HHH                                                 F             ",
-    "XXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX   XXXXXXXXXXXXXXX   XXXXX   XXXXXXXXXXXXXXXXX   XXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX   XXXXXXXXXXXBBBBBBBBBBBBBBBBBBBBXXXXXXXXXXXXXXXXXXXXXXXX",
-    "XXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX   XXXXXXXXXXXXXXX   XXXXX   XXXXXXXXXXXXXXXXX   XXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX                    XXXXXXXXXXXXXXXXXXXXXXXX"
+    "                     o                             o o                  HHH                                   HHH                         o o      o              F             ",
+    "                   o   o                HHH            o                HHH                                   HHH                                                 F             ",
+    "                                        HHH                             HHH                                   HHH                           BBBBBB                F             ",
+    "XXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX    XXXXXXXXXXXXXX   XXXXXX  XXXXXXXXXXXXXXXXX    XXXXXXXXXXXX     XXXXXXXXXXXXXXXXX   XXXXXXXXXXXBBBBBB          BBBBXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXX   XXXXXXXXXXX    XXXXXXXXXXXXXX   XXXXXX  XXXXXXXXXXXXXXXXX    XXXXXXXXXXXX     XXXXXXXXXXXXXXXXX   XXXXXXXXXXX                    XXXXXXXXXXXXXXXXXXXXXXXX"
   ],
   "contents": [
     {"x": 10, "y": 9, "kind": "mushroom"},
@@ -33,7 +33,6 @@
   "entities": [
     {"kind": "goomba", "x": 31, "y": 12},
     {"kind": "goomba", "x": 46, "y": 12},
-    {"kind": "goomba", "x": 49, "y": 12},
     {"kind": "goomba", "x": 76, "y": 12},
     {"kind": "goomba", "x": 78, "y": 12},
     {"kind": "goomba", "x": 89, "y": 12},
@@ -41,7 +40,7 @@
     {"kind": "goomba", "x": 103, "y": 12},
     {"kind": "goomba", "x": 115, "y": 12},
     {"kind": "koopa", "x": 125, "y": 12},
-    {"kind": "koopa", "x": 139, "y": 12},
-    {"kind": "koopa", "x": 146, "y": 12}
+    {"kind": "koopa", "x": 135, "y": 12},
+    {"kind": "koopa", "x": 143, "y": 11}
   ]
 }

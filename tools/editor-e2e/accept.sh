@@ -20,7 +20,7 @@ for f in "$WT"/pkg/level/data/*.json; do tr -d '\r' < "$f" > "$f.lf" && mv "$f.l
 cd "$WT"
 make build >/dev/null
 PORT=${PORT:-47398}
-./build/super-mario.exe edit --port "$PORT" --dir pkg/level/data > edit.log 2>&1 &
+./build/super-mario.exe edit --no-browser --port "$PORT" --dir pkg/level/data --draft-dir build/accept-drafts > edit.log 2>&1 &
 PID=$!
 sleep 2
 mkdir -p tools/editor-e2e/shots

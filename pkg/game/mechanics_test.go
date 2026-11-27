@@ -58,7 +58,7 @@ func TestGrownPlayerNeverStuckInsideTerrain(t *testing.T) {
 
 	// A low ceiling: a solid tile two rows above the floor, leaving exactly
 	// the small player's height and no more.
-	ceil := 10
+	ceil := 11
 	for x := 0; x < 8; x++ {
 		w.Level.SetTile(x, ceil, level.Tile{Kind: level.KindSolid, Glyph: 'X'})
 	}
@@ -67,9 +67,14 @@ func TestGrownPlayerNeverStuckInsideTerrain(t *testing.T) {
 
 	w.Player.Grow(w.Level)
 
-	if crushedByTerrain(w.Level, &w.Player.Body) {
+	if w.Player.IsBig() || crushedByTerrain(w.Level, &w.Player.Body) {
 		t.Fatalf("player is embedded in solid terrain after growing (pos=%v size=%v)",
 			w.Player.Pos, engine.Vec2{X: w.Player.W, Y: w.Player.H})
+	}
+	w.Player.Pos.X = 9 * engine.Tile
+	w.Step()
+	if !w.Player.IsBig() || crushedByTerrain(w.Level, &w.Player.Body) {
+		t.Fatal("the collected mushroom did not grow the player once he cleared the ceiling")
 	}
 }
 

@@ -110,4 +110,5 @@ try {
   console.log('JS ERRORS:', b.errors.length ? b.errors : 'none');
   console.log(fails ? `${fails} FAILED` : 'ALL PASSED');
   b.close();
+  process.exitCode = fails ? 1 : 0;
 }

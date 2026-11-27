@@ -150,6 +150,7 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 
 	d.stars(w)
 	d.clouds(w)
+	d.lavaSurface(w.Level)
 	d.terrain(w)
 	d.castle(w)
 	d.flag(w)
@@ -160,6 +161,23 @@ func (s *Scene) Draw(w *game.World, colsPerTile int) *Canvas {
 	d.particles(w)
 	d.coins(w)
 	return c
+}
+
+// lavaSurface fills the bottom of a lava-themed scene. Terrain is drawn
+// over it, so the surface shows through open pits and under bridges.
+func (d drawer) lavaSurface(lv *level.Level) {
+	if d.s.Transparent || lv.Style.Theme != "lava" {
+		return
+	}
+	top := (lv.Height-1)*d.px - d.camY
+	if top >= d.artH || top+d.px <= 0 {
+		return
+	}
+	d.c.FillRect(0, top, d.artW, d.px, d.s.T.Cast.GrassDark)
+	d.c.FillRect(0, top, d.artW, max(1, d.px/4), d.s.T.Cast.Grass)
+	for x := -d.camX % (2 * d.px); x < d.artW; x += 2 * d.px {
+		d.c.FillRect(x, top, max(1, d.px/2), max(1, d.px/4), d.s.T.QuestionGlint)
+	}
 }
 
 // drawer holds the per-frame state shared by the tile and entity painters.
@@ -488,6 +506,11 @@ func (d drawer) player(w *game.World) {
 	centreX := WorldToArtScaled(p.Pos.X+p.W/2, d.px) - d.camX
 	bottomY := roundArt(p.Pos.Y+p.H, d.px) - d.camY
 	x, y := centreX-headMid, bottomY-sh
+	trailHeight := sh
+	if !p.Dead && p.Respawning == 0 {
+		y = d.fitHeroUnderCeiling(w.Level, p.Pos.Y, x, y, sw)
+		sh = max(1, bottomY-y)
+	}
 
 	switch {
 	case p.Dead:
@@ -497,7 +520,7 @@ func (d drawer) player(w *game.World) {
 	case p.HasStar():
 		// Star power: a trail of fading afterimages behind him, and his colours
 		// cycling through the rainbow. It speeds up and fades as it runs out.
-		d.starTrail(w, hero, sw, sh, headMid)
+		d.starTrail(w, hero, sw, trailHeight, headMid)
 		hue := step * 12
 		ending := p.StarSec < 120
 		if ending {
@@ -518,6 +541,23 @@ func (d drawer) player(w *game.World) {
 	}
 }
 
+// fitHeroUnderCeiling keeps the feet anchored and fits the taller artwork
+// below any solid tiles occupying the space above the collision box.
+func (d drawer) fitHeroUnderCeiling(lv *level.Level, bodyTop engine.Fixed, x, y, width int) int {
+	firstCol := max(0, floorDiv(x+d.camX, d.px))
+	lastCol := min(lv.Width-1, floorDiv(x+width-1+d.camX, d.px))
+	firstRow := max(0, floorDiv(y+d.camY, d.px))
+	rowAboveBody := int(bodyTop/engine.Tile) - 1
+	for row := rowAboveBody; row >= firstRow; row-- {
+		for col := firstCol; col <= lastCol; col++ {
+			if lv.SolidAt(col, row) {
+				return max(y, (row+1)*d.px-d.camY)
+			}
+		}
+	}
+	return y
+}
+
 // starTrail draws a few faint copies of him where he really was a moment ago,
 // from the positions the player keeps; standing still they sit under him and
 // do not show.
@@ -535,7 +575,9 @@ func (d drawer) starTrail(w *game.World, hero HeroDrawing, sw, sh, headMid int) 
 		tint := func(c tcell.Color) tcell.Color {
 			return blend(rainbowTint(c, hue), d.skyAt(by-sh/2, w).(tcell.Color), 0.35+fade)
 		}
-		d.c.DrawTinted(hero.Sprite, cx-headMid, by-sh, sw, sh, d.s.T, tint, false)
+		x := cx - headMid
+		y := d.fitHeroUnderCeiling(w.Level, past.Y, x, by-sh, sw)
+		d.c.DrawTinted(hero.Sprite, x, y, sw, max(1, by-y), d.s.T, tint, false)
 	}
 }
 

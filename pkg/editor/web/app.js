@@ -6,11 +6,11 @@
 
 import * as M from './model.js';
 import { t, issueText, applyStatic, setLang, current as currentLang, LANGS } from './i18n.js';
+import { readDraft, storeDraft, deleteDraft } from './drafts.js';
 
 // ================================================================ state
 
 const ART = 4;            // art pixels per tile: what the terminal shows by default
-const DRAFT_KEY = 'mario-editor-draft';
 
 const S = {
   lv: M.starter(),
@@ -18,7 +18,12 @@ const S = {
   // source is the folder the level is kept in: 'builtin' or 'local'. A new
   // level gets the default for where the editor runs.
   source: '',
-  openedAs: '',        // the key it was opened from (saving back never asks)
+  openedAs: '',        // the key it was opened from
+  baseRevision: '',    // the version of the file this document was opened from
+  revision: 0,        // increments whenever the editor document changes
+  draftToken: '',
+  saving: false,
+  opening: false,
   history: new M.History(),
   dirty: false,
   info: null,          // /api/info: folders and what can be written
@@ -75,12 +80,7 @@ async function boot() {
   wire();
 
   const want = location.hash.slice(1) || S.info.open;
-  const draft = readDraft();
-  if (draft && confirmSync(t('q.restore', { id: draft.id || t('untitled'), at: new Date(draft.at).toLocaleString() }))) {
-    loadDoc(M.fromFile(draft.level), draft.id, draft.source || S.info.newSource, draft.openedAs, true);
-  } else if (want) {
-    await openLevel(want);
-  } else {
+  if (!(await restoreDraft(want || '')) && !(want && await openLevel(want))) {
     loadDoc(M.starter(), '', S.info.newSource, '', false);
   }
 
@@ -140,8 +140,9 @@ async function loadWasm() {
 
 // ================================================================ document
 
-function loadDoc(lv, id, source, openedAs, dirty) {
+function loadDoc(lv, id, source, openedAs, dirty, baseRevision = '', draftToken = crypto.randomUUID()) {
   S.lv = lv; S.id = id; S.source = source; S.openedAs = openedAs;
+  S.baseRevision = baseRevision; S.draftToken = draftToken; S.revision++;
   S.history = new M.History();
   S.selection = null; S.selected = null; S.trace = null;
   setDirty(dirty);
@@ -163,10 +164,21 @@ const keyOf = (source, id) => (source === 'local' ? 'local:' : '') + id;
 
 async function openLevel(key) {
   const [source, id] = parseKey(key);
-  const r = await fetch('api/levels/' + source + '/' + encodeURIComponent(id));
-  if (!r.ok) { toast(t('toast.notFound', { id }), 4000, true); loadDoc(M.starter(), '', S.info.newSource, '', false); return; }
-  loadDoc(M.fromFile(await r.text()), id, source, keyOf(source, id), false);
-  history.replaceState(null, '', '#' + keyOf(source, id));
+  try {
+    const r = await fetch('api/levels/' + source + '/' + encodeURIComponent(id));
+    if (!r.ok) {
+      toast(t('toast.notFound', { id }), 4000, true);
+      return false;
+    }
+    const lv = M.fromFile(await r.text());
+    clearDraft();
+    loadDoc(lv, id, source, key, false, r.headers.get('ETag') || '');
+    history.replaceState(null, '', '#' + key);
+    return true;
+  } catch (error) {
+    toast(t(error instanceof RangeError ? 'toast.unsupportedHeight' : 'toast.openFailed', { id, height: M.HEIGHT }), 5000, true);
+    return false;
+  }
 }
 
 /** Run an edit as one undoable step. fn receives the patch. */
@@ -199,7 +211,10 @@ function setDirty(d) {
   $('dirty').hidden = !d;
   $('btn-undo').disabled = !S.history.canUndo;
   $('btn-redo').disabled = !S.history.canRedo;
-  if (d) saveDraftSoon();
+  if (d) {
+    S.revision++;
+    saveDraftSoon();
+  }
 }
 
 // ================================================================ checking
@@ -1375,6 +1390,7 @@ function syncLook() {
 // ================================================================ save
 
 async function save() {
+  if (S.saving || S.opening) return;
   const errs = errors();
   if (errs.length) {
     toast(t('toast.saveErrors', { n: errs.length, m: issueText(errs[0]) }), 5000, true);
@@ -1393,37 +1409,52 @@ async function save() {
     $('level-id').focus(); return;
   }
 
-  S.lv.name = id; if (!S.lv.world) S.lv.world = id;
-  const out = JSON.parse(mario.format(M.toFile(S.lv)));
+  const out = JSON.parse(mario.format(M.toFile({ ...S.lv, name: id, world: S.lv.world || id })));
   if (out.error) { toast(out.error, 5000, true); return; }
 
   // Back where it came from; a read-only built-in level goes to the local
   // folder instead, and says so.
   const wanted = S.source || S.info.newSource;
   const source = targetSource();
-  const put = overwrite => fetch('api/levels/' + source + '/' + id, {
+  const { revision, openedAs, baseRevision } = S;
+  const put = (overwrite, revision) => fetch('api/levels/' + source + '/' + id, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level: out.text, overwrite, openedAs: S.openedAs }),
+    body: JSON.stringify({ level: out.text, overwrite, openedAs, revision }),
   });
-  let r = await put(false);
-  if (r.status === 409) {
-    const body = await r.clone().json();
-    if (body.code === 'exists') {
+  S.saving = true;
+  $('btn-save').disabled = true;
+  try {
+    let r = await put(false, baseRevision);
+    let body = await r.json();
+    if (r.status === 409 && body.code === 'exists') {
       const where = source === 'local' ? t('lvl.whereLocal') : t('lvl.whereBuiltin');
       if (!(await confirmDialog(t('q.overwriteTitle'), t('q.overwrite', { id, where })))) return;
-      r = await put(true);
+      r = await put(true, body.revision);
+      body = await r.json();
     }
+    if (!r.ok) { toast(t('err.' + body.code, body) || t('err.unknown'), 6000, true); return; }
+    const msg = wanted !== source ? t('toast.savedReadOnly', { p: body.path }) : t('toast.saved', { p: body.path });
+    finishSave(id, source, body.revision, revision, msg);
+  } catch {
+    toast(t('err.save-request'), 6000, true);
+  } finally {
+    S.saving = false;
+    $('btn-save').disabled = false;
   }
-  const body = await r.json();
-  if (!r.ok) { toast(t('err.' + body.code, body) || t('err.unknown'), 6000, true); return; }
-  const msg = wanted !== source ? t('toast.savedReadOnly', { p: body.path }) : t('toast.saved', { p: body.path });
-  finishSave(id, source, msg);
 }
 
-function finishSave(id, source, msg) {
-  S.id = id; S.source = source; S.openedAs = keyOf(source, id);
-  setDirty(false);
-  clearDraft();
+function finishSave(id, source, baseRevision, revision, msg) {
+  S.source = source; S.openedAs = keyOf(source, id); S.baseRevision = baseRevision;
+  S.lv.name = id;
+  if (!S.lv.world) S.lv.world = id;
+  if (S.revision === revision) {
+    S.id = id;
+    setDirty(false);
+    clearDraft();
+  } else {
+    flushDraft();
+    msg = t('toast.savedWithPendingEdits');
+  }
   history.replaceState(null, '', '#' + S.openedAs);
   syncLevelPanel();
   toast(msg, 4000);
@@ -1435,17 +1466,44 @@ function finishSave(id, source, msg) {
 let draftTimer = 0;
 function saveDraftSoon() {
   clearTimeout(draftTimer);
-  draftTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ id: S.id, source: S.source, openedAs: S.openedAs, level: M.toFile(S.lv), at: Date.now() }));
-      $('st-draft').textContent = t('st.draft', { t: new Date().toLocaleTimeString().slice(0, 5) });
-    } catch { $('st-draft').textContent = t('st.draftFail'); }
-  }, 600);
+  draftTimer = setTimeout(flushDraft, 350);
 }
-function readDraft() {
-  try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY)); return d && d.level ? d : null; } catch { return null; }
+
+function flushDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = 0;
+  if (!S.dirty) return;
+  const { id, source, openedAs, baseRevision, draftToken, revision } = S;
+  const at = Date.now();
+  storeDraft({ token: draftToken, id, source, openedAs, revision: baseRevision, level: M.toFile(S.lv), at }).then(() => {
+    if (S.dirty && S.revision === revision) $('st-draft').textContent = t('st.draft', { t: new Date(at).toLocaleTimeString().slice(0, 5) });
+  }, () => {
+    if (S.dirty && S.revision === revision) $('st-draft').textContent = t('st.draftFail');
+  });
 }
-function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ } $('st-draft').textContent = ''; }
+
+async function restoreDraft(key) {
+  const draft = await readDraft(key);
+  if (!draft || draft.token === S.draftToken) return false;
+  if (!confirmSync(t('q.restore', { id: draft.id || t('untitled'), at: new Date(draft.at).toLocaleString() }))) return false;
+  try {
+    const lv = M.fromFile(draft.level);
+    clearDraft();
+    loadDoc(lv, draft.id, draft.source || S.info.newSource, draft.openedAs || '', true, draft.revision || '', draft.token);
+    if (S.openedAs) history.replaceState(null, '', '#' + S.openedAs);
+    return true;
+  } catch {
+    toast(t('toast.draftOpenFailed'), 5000, true);
+    return false;
+  }
+}
+
+function clearDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = 0;
+  if (S.draftToken) deleteDraft(S.draftToken).catch(() => {});
+  $('st-draft').textContent = '';
+}
 
 // ================================================================ playtest
 
@@ -1702,6 +1760,7 @@ function fillGround() {
 // ================================================================ dialogs
 
 async function openDialog() {
+  if (S.saving || S.opening) return;
   if (S.dirty && !(await confirmDialog(t('dlg.open'), t('q.discardOpen')))) return;
   const list = await (await fetch('api/levels')).json();
   const ul = $('open-list'); ul.innerHTML = '';
@@ -1728,13 +1787,24 @@ async function openDialog() {
     b.querySelectorAll('.sub')[0].textContent = l.error ? t('open.broken', { e: l.error }) : l.id + (l.author ? ' · ' + l.author : '');
     b.querySelectorAll('.sub')[1].textContent = (l.official ? t('open.official') : t('open.community')) + (l.difficulty ? ' · ' + t('open.diff', { d: l.difficulty }) : '');
     if (l.error) b.disabled = true;
-    b.onclick = async () => { $('dlg-open').close(); clearDraft(); await openLevel(keyOf(l.source, l.id)); };
+    b.onclick = async () => {
+      if (S.saving || S.opening) return;
+      $('dlg-open').close();
+      const key = keyOf(l.source, l.id);
+      S.opening = true;
+      try {
+        if (!(await restoreDraft(key))) await openLevel(key);
+      } finally {
+        S.opening = false;
+      }
+    };
     li.append(b); ul.append(li);
   }
   $('dlg-open').showModal();
 }
 
 async function newDialog() {
+  if (S.saving || S.opening) return;
   if (S.dirty && !(await confirmDialog(t('dlg.new'), t('q.discardNew')))) return;
   const dir = S.info.newSource === 'local' ? S.info.localDir : S.info.builtinDir;
   $('new-where').textContent = t('dlg.newWhere', { p: dir });
@@ -1742,6 +1812,7 @@ async function newDialog() {
 }
 
 function newLevel() {
+  if (S.saving || S.opening) return;
   const theme = document.querySelector('#new-themes .theme-card.on')?.dataset.theme || 'grassland';
   const width = Math.max(32, Math.min(1000, +$('new-width').value || 120));
   $('dlg-new').close();
@@ -1791,7 +1862,16 @@ function wire() {
   window.addEventListener('blur', () => { spaceHeld = false; if (S.playing) S.playing.keys = 0; });
   window.addEventListener('resize', resize);
   // Unsaved changes: the browser asks before leaving (spec level-editor / 离开前确认).
-  window.addEventListener('beforeunload', e => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && draftTimer) flushDraft();
+  });
+  window.addEventListener('beforeunload', e => {
+    if (S.dirty) {
+      if (draftTimer) flushDraft();
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
 
   $('level-id').addEventListener('input', () => status());
   $('btn-new').onclick = newDialog;

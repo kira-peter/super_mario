@@ -334,6 +334,13 @@ test('a level survives fromFile(toFile(x))', () => {
   assert.deepEqual(again.contents.get('20,9').pool, [{ kind: 'star', w: 2 }, { kind: 'coin', w: 1 }]);
 });
 
+test('opening a taller level refuses to truncate its rows', () => {
+  const file = JSON.parse(M.toFile(M.starter()));
+  file.rows.push('X'.repeat(file.width));
+  file.height++;
+  assert.throws(() => M.fromFile(JSON.stringify(file)), /unsupported level height/);
+});
+
 test('ids: suggestions are valid, bad ids are refused', () => {
   assert.equal(M.suggestId('Tom', 'Sky Run!'), 'c-tom-sky-run');
   assert.ok(M.validId(M.suggestId('', '')));

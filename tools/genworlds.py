@@ -226,8 +226,7 @@ def level_1_3():
     L.column(83, 86, 12)
     L.column(90, 94, 10)
     L.ledge(98, 101, 9)
-    L.column(105, 112, 11)
-    L.goomba(108, 110)
+    L.column(105, 114, 11)  # a safe place to stop before the final climb
     L.column(116, 118, 8)
     L.ledge(122, 125, 6)
     L.coins(122, 125, 4)
@@ -236,8 +235,10 @@ def level_1_3():
     L.column(138, 141, 11)
     L.ground(145, L.w)
     # Coins over some of the gaps show the way.
-    for a, b, y in [(15, 18, 9), (29, 32, 6), (55, 58, 6), (80, 83, 5), (102, 105, 7)]:
+    for a, b, y in [(15, 18, 9), (29, 32, 6), (55, 58, 6), (80, 83, 5), (102, 105, 7), (119, 122, 5)]:
         L.arc(a, b, y)
+    for x, y in [(18, 10), (32, 7), (58, 7), (83, 11), (105, 10), (122, 5)]:
+        L.put(x, y, "o")
     L.stair_up(148, 4)
     L.finish(158)
     L.write()
@@ -247,16 +248,17 @@ def level_1_3():
 # 1-4 lava: the castle
 # =============================================================================
 def level_1_4():
-    L = Level("1-4", 176, "熔岩城堡", "低矮的岩顶压着头，脚下是熔岩坑；最后一座砖桥上有两只乌龟守着。", 4, "lava", 300)
-    segments = [(0, 20), (23, 34), (37, 52), (55, 60), (63, 80), (83, 96), (99, 118), (121, 132), (152, 176)]
+    L = Level("1-4", 176, "熔岩城堡", "先练短跳，再助跑穿过低矮岩顶；终点前有两只乌龟守着错层砖桥。", 4, "lava", 300)
+    segments = [(0, 20), (23, 34), (38, 52), (55, 61), (63, 80), (84, 96), (101, 118), (121, 132), (152, 176)]
     for a, b in segments:
         L.ground(a, b)
-    # The bridge: one row of bricks over the lava.
-    L.fill(132, 152, FLOOR, FLOOR, "B")
+    # Three bridge sections with a raised centre and room to pause on each.
+    for a, b, row in [(132, 138, 13), (140, 146, 12), (148, 152, 13)]:
+        L.ledge(a, b, row, "B")
     L.fill(0, 156, 0, 2, "H")  # the castle roof
 
     # Rock hanging from the roof: jumps under it have to stay low.
-    for a, b, bottom in [(27, 30, 7), (44, 47, 8), (52, 55, 6), (66, 69, 8), (88, 91, 7), (104, 108, 8), (118, 121, 6)]:
+    for a, b, bottom in [(27, 30, 7), (44, 47, 8), (50, 55, 7), (66, 69, 8), (88, 91, 7), (104, 108, 8), (118, 121, 6)]:
         L.fill(a, b, 3, bottom, "H")
 
     L.question(10, 9, "mushroom")
@@ -267,9 +269,11 @@ def level_1_4():
     L.fill(110, 113, 10, 12, "H")
     L.question(73, 6, "coin")
 
-    L.goomba(31, 46, 49, 76, 78, 89, 92, 103, 115)
+    for x, y in [(19, 11), (21, 10), (23, 11), (51, 10), (53, 10), (55, 11), (138, 10), (140, 10), (147, 10)]:
+        L.put(x, y, "o")
+    L.goomba(31, 46, 76, 78, 89, 92, 103, 115)
     L.koopa(125)
-    L.koopa(139, 146)  # on the bridge
+    L.koopa(135, 143)  # on the first and raised bridge sections
     L.finish(162)
     L.write()
 
@@ -368,6 +372,9 @@ def level_2_3():
     for a, b in spans:
         L.ledge(a, b, BRIDGE, "B")
     L.ground(163, L.w)
+    # The opening jump climbs three rows from the ground onto the bridge.
+    for x, y in [(14, 11), (15, 9), (16, 7), (17, 7), (19, 8)]:
+        L.put(x, y, "o")
 
     # Coins over every gap.
     prev = 15

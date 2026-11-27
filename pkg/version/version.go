@@ -19,7 +19,7 @@ import (
 
 // Default is the version a build without -ldflags reports. It must match the
 // VERSION file; TestVERSIONFile keeps the two in step.
-const Default = "1.0.0"
+const Default = "1.1.1"
 
 // Number is the version this binary reports: "x.y.z", with an optional
 // "-suffix" for a pre-release. The Makefile overrides it from the VERSION file.

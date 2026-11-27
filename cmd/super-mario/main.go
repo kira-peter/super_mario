@@ -48,6 +48,8 @@ func runEdit(args []string) int {
 	port := fs.Int("port", 0, "监听端口（默认随机挑一个空闲端口）")
 	dir := fs.String("dir", "", "内置关卡目录（默认在仓库里自动找 pkg/level/data）")
 	local := fs.String("local", "", "本地关卡目录（默认是程序旁的 levels/）")
+	drafts := fs.String("draft-dir", "", "草稿目录（默认使用应用配置目录）")
+	noBrowser := fs.Bool("no-browser", false, "启动编辑器服务，不自动打开浏览器")
 	fs.Parse(args)
 
 	cat := catalog.Default()
@@ -70,10 +72,12 @@ func runEdit(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	err := editor.Run(ctx, editor.Config{
-		Port:    *port,
-		Catalog: cat,
-		Open:    open,
-		Out:     os.Stdout,
+		Port:      *port,
+		Catalog:   cat,
+		Open:      open,
+		Out:       os.Stdout,
+		DraftDir:  *drafts,
+		NoBrowser: *noBrowser,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

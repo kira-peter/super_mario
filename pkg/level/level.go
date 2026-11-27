@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"super-mario/pkg/engine"
 )
@@ -146,6 +147,9 @@ const (
 	MaxDescriptionLen = 140
 	MaxDifficulty     = 5
 )
+
+// MaxCells bounds the in-memory terrain grid and its respawn snapshot.
+const MaxCells = 1 << 20
 
 // Level is a parsed, validated level.
 type Level struct {
@@ -426,6 +430,20 @@ func build(f *file) (*Level, []Problem) {
 		with("detail", err.Error())
 	}
 
+	gridOK := true
+	for y, row := range f.Rows {
+		if n := utf8.RuneCountInString(row); n != f.Width {
+			add("row-width", -1, y, "row %d has %d columns, want %d", y, n, f.Width)
+			with("row", y, "n", n, "want", f.Width)
+			gridOK = false
+		}
+	}
+	if f.Width > MaxCells/f.Height {
+		add("grid-limit", -1, -1, "level grid exceeds %d cells", MaxCells)
+		with("limit", MaxCells)
+		return nil, probs
+	}
+
 	l := &Level{
 		Name:      f.Name,
 		World:     f.World,
@@ -439,13 +457,14 @@ func build(f *file) (*Level, []Problem) {
 		FlagX:     f.Flag.X,
 		FlagTop:   f.Flag.TopY,
 		FlagBot:   f.Flag.BottomY,
-		tiles:     make([]Tile, f.Width*f.Height),
+	}
+	if gridOK {
+		l.tiles = make([]Tile, f.Width*f.Height)
 	}
 	if l.TimeLimit == 0 {
 		l.TimeLimit = 400
 	}
 
-	gridOK := true
 	// declared marks every cell a content entry names, valid or not, so a
 	// block whose entry was rejected above is not also reported as having no
 	// entry at all.
@@ -454,21 +473,21 @@ func build(f *file) (*Level, []Problem) {
 		declared[[2]int{c.X, c.Y}] = true
 	}
 	for y, row := range f.Rows {
-		runes := []rune(row)
-		if len(runes) != f.Width {
-			add("row-width", -1, y, "row %d has %d columns, want %d", y, len(runes), f.Width)
-			with("row", y, "n", len(runes), "want", f.Width)
-			gridOK = false
+		if !gridOK && utf8.RuneCountInString(row) != f.Width {
 			continue
 		}
-		for x, ch := range runes {
+		x := 0
+		for _, ch := range row {
 			kind, ok := symbolTable[ch]
 			if !ok {
 				add("symbol", x, y, "row %d col %d: unknown tile symbol %q", y, x, string(ch))
 				with("symbol", string(ch))
 				kind = KindEmpty
 			}
-			l.tiles[y*f.Width+x] = Tile{Kind: kind, Glyph: ch}
+			if gridOK {
+				l.tiles[y*f.Width+x] = Tile{Kind: kind, Glyph: ch}
+			}
+			x++
 		}
 	}
 

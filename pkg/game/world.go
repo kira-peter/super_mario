@@ -423,6 +423,9 @@ func (w *World) stepPlaying(in engine.Pressed) {
 	w.runSteps++
 	w.Player.update(w.Level, in)
 	w.handleBump()
+	if w.Player.growPending {
+		w.Player.Grow(w.Level)
+	}
 
 	for _, e := range w.Enemies {
 		w.updateEnemy(e)

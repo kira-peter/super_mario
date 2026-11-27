@@ -225,7 +225,7 @@ try {
   await b.key('2', 'Digit2', 0, '2');
   await click(40, 3);
   await sleep(900);
-  ok(await b.evaluate(`!!localStorage.getItem('mario-editor-draft')`), 'unsaved edit stored as a draft');
+  ok(await b.evaluate(`fetch('api/drafts?key=c-test-snow-run').then(r => r.status === 200)`), 'unsaved edit stored in app drafts');
 
   await b.key('?', 'Slash', 8, '?'); await sleep(150);
   ok(await b.evaluate(`document.getElementById('dlg-help').open`), '? opens the shortcut list');
@@ -234,4 +234,5 @@ try {
   console.log('JS ERRORS:', b.errors.length ? b.errors : 'none');
   console.log(fails ? `${fails} FAILED` : 'ALL PASSED');
   b.close();
+  process.exitCode = fails ? 1 : 0;
 }

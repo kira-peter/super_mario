@@ -19,10 +19,8 @@ const (
 
 // SmallSize and BigSize are collision boxes in game units.
 //
-// The art is 16x16 small and 16x32 big, but the collision box is deliberately
-// narrower than the sprite so a player can slip through a one-tile gap that
-// looks passable. That is the original behaviour and it matters more than
-// sprite-accurate boxes.
+// The collision box is narrower than the artwork so a player can slip through
+// a one-tile gap. The renderer fits the artwork under solid ceilings.
 var (
 	SmallSize = engine.Vec2{X: engine.FromFloat(12), Y: engine.FromFloat(15)}
 	BigSize   = engine.Vec2{X: engine.FromFloat(12), Y: engine.FromFloat(30)}
@@ -50,6 +48,8 @@ type Player struct {
 
 	// GrowFlash counts the frames of the grow/shrink flash.
 	GrowFlash int
+	// A mushroom collected in a one-tile passage takes effect when there is room.
+	growPending bool
 	// Shrinking counts down the shrink animation after a hit, during which the
 	// world holds still: he flickers between big and small, as in the original.
 	Shrinking int
@@ -120,24 +120,32 @@ func (p *Player) placeAtCell(col, row int) {
 // Design decision: growth prefers to expand upward and falls back to expanding
 // downward, so a player under a low ceiling is never pushed into a tile
 // (spec mario-physics / 头顶空间不足时变大).
-func (p *Player) applyForm(lv *level.Level, f Form) {
-	oldBottom := p.Bottom()
-	switch f {
-	case FormSmall:
-		p.W, p.H = SmallSize.X, SmallSize.Y
-	case FormBig, FormStar:
-		p.W, p.H = BigSize.X, BigSize.Y
+func (p *Player) applyForm(lv *level.Level, f Form) bool {
+	size := SmallSize
+	if f != FormSmall {
+		size = BigSize
 	}
-	p.Pos.Y = oldBottom - p.H
-
-	// If growing put the head inside a tile, try shifting down instead.
-	if f != FormSmall && overlapsSolid(lv, p.Rect()) {
-		p.Pos.Y = oldBottom - p.H
+	r := engine.Rect{X: p.Pos.X, Y: p.Bottom() - size.Y, W: size.X, H: size.Y}
+	if r.Y < p.Top() && overlapsSolid(lv, r) {
+		x0, x1 := tileSpan(r.X, r.Right())
+		y0, y1 := tileSpan(r.Y, p.Top())
+		for y := y0; y <= y1; y++ {
+			for x := x0; x <= x1; x++ {
+				if lv.SolidAt(x, y) {
+					r.Y = engine.Fixed(y+1) * engine.Tile
+				}
+			}
+		}
+		if overlapsSolid(lv, r) {
+			return false
+		}
 	}
+	p.Pos.Y, p.W, p.H = r.Y, r.W, r.H
 	if f == FormStar {
 		f = FormBig // star power is not a size; see Star
 	}
 	p.Form = f
+	return true
 }
 
 // overlapsSolid reports whether a rect intersects any solid cell.
@@ -160,7 +168,10 @@ func overlapsSolid(lv *level.Level, r engine.Rect) bool {
 // Grow switches to big form, or consumes the mushroom for score if already big.
 func (p *Player) Grow(lv *level.Level) bool {
 	if p.Form == FormSmall {
-		p.applyForm(lv, FormBig)
+		p.growPending = !p.applyForm(lv, FormBig)
+		if p.growPending {
+			return false
+		}
 		p.GrowFlash = 16
 		return true
 	}
@@ -242,6 +253,7 @@ func (p *Player) Die() {
 	p.Dead = true
 	p.deathTimer = 0
 	p.Melting = false
+	p.growPending = false
 	p.deathY0 = p.Pos.Y
 	p.DeathFacing = p.Facing
 	p.Vel = engine.Vec2{}

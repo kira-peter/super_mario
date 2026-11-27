@@ -59,9 +59,13 @@ func save(h http.Handler, src, id string, req SaveRequest) *httptest.ResponseRec
 }
 
 func code(w *httptest.ResponseRecorder) string {
+	return field(w, "code")
+}
+
+func field(w *httptest.ResponseRecorder, name string) string {
 	var m map[string]string
 	json.Unmarshal(w.Body.Bytes(), &m)
-	return m["code"]
+	return m[name]
 }
 
 func TestSaveWritesTheFormattedLevelAndSaysWhere(t *testing.T) {
@@ -206,11 +210,12 @@ func TestOverwriteNeedsConfirming(t *testing.T) {
 	if got, _ := os.ReadFile(path); string(got) != other {
 		t.Error("the other level was replaced without confirmation")
 	}
-	if w := save(h, "local", "c-amy-hills", SaveRequest{Level: goodLevel(t), Overwrite: true}); w.Code != http.StatusOK {
-		t.Fatalf("confirmed overwrite: %d %s", w.Code, w.Body)
+	saved := save(h, "local", "c-amy-hills", SaveRequest{Level: goodLevel(t), Overwrite: true, Revision: field(w, "revision")})
+	if saved.Code != http.StatusOK {
+		t.Fatalf("confirmed overwrite: %d %s", saved.Code, saved.Body)
 	}
 	// Saving back to the level that was opened never asks.
-	if w := save(h, "local", "c-amy-hills", SaveRequest{Level: other, OpenedAs: "local:c-amy-hills"}); w.Code != http.StatusOK {
+	if w := save(h, "local", "c-amy-hills", SaveRequest{Level: other, OpenedAs: "local:c-amy-hills", Revision: field(saved, "revision")}); w.Code != http.StatusOK {
 		t.Errorf("saving the opened level asked for confirmation: %d", w.Code)
 	}
 	// The same id in the other folder is a different level: opened as the
@@ -218,6 +223,43 @@ func TestOverwriteNeedsConfirming(t *testing.T) {
 	// if that one exists.
 	if w := save(h, "builtin", "c-amy-hills", SaveRequest{Level: other, OpenedAs: "local:c-amy-hills"}); w.Code != http.StatusOK {
 		t.Errorf("saving a new built-in copy: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestSaveRejectsConcurrentEditsFromTheSameRevision(t *testing.T) {
+	_, h, _, _ := repoServer(t)
+	original := do(h, "GET", "/api/levels/builtin/1-1", "", nil)
+	revision := original.Header().Get("ETag")
+	if revision == "" {
+		t.Fatal("opening the level did not return a revision")
+	}
+	results := make(chan *httptest.ResponseRecorder, 2)
+	data := goodLevel(t)
+	for _, timeLimit := range []string{"300", "200"} {
+		go func() {
+			results <- save(h, "builtin", "1-1", SaveRequest{
+				Level:    strings.Replace(data, `"timeLimit": 400`, `"timeLimit": `+timeLimit, 1),
+				OpenedAs: "1-1", Revision: revision,
+			})
+		}()
+	}
+	success, conflict := 0, 0
+	var winningText string
+	for range 2 {
+		w := <-results
+		switch {
+		case w.Code == http.StatusOK:
+			success++
+			winningText = field(w, "text")
+		case w.Code == http.StatusConflict && code(w) == "level-changed":
+			conflict++
+		default:
+			t.Errorf("unexpected response: %d %s", w.Code, w.Body)
+		}
+	}
+	current := do(h, "GET", "/api/levels/builtin/1-1", "", nil)
+	if success != 1 || conflict != 1 || current.Body.String() != winningText {
+		t.Fatalf("successes=%d conflicts=%d saved file matches=%v", success, conflict, current.Body.String() == winningText)
 	}
 }
 

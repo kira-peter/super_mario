@@ -76,3 +76,13 @@ func TestBrokenGridStopsCellChecks(t *testing.T) {
 		t.Errorf("want just the short row: %+v", probs)
 	}
 }
+
+func TestGridLimitIsCheckedBeforeAllocatingTiles(t *testing.T) {
+	f := file{
+		Width: MaxCells + 1, Height: 1, Rows: []string{strings.Repeat(" ", MaxCells+1)},
+	}
+	lv, probs := build(&f)
+	if lv != nil || len(probs) != 1 || probs[0].Code != "grid-limit" {
+		t.Fatalf("oversized grid: level loaded=%t, problems=%+v", lv != nil, probs)
+	}
+}

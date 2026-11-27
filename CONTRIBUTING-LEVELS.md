@@ -9,18 +9,10 @@
 3. 在仓库根目录运行：
 
    ```bash
-   make build
+   go run ./tools/build
    ```
 
-   生成 `build/super-mario.exe`（macOS / Linux 上没有 `.exe` 后缀也一样能用）。
-
-   没有 `make` 的话，依次运行下面三条，效果一样：
-
-   ```bash
-   GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o pkg/editor/web/editor.wasm ./cmd/wasm
-   cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" pkg/editor/web/wasm_exec.js
-   go build -o build/super-mario.exe ./cmd/super-mario
-   ```
+   Windows、macOS 和 Linux 都生成 `build/super-mario.exe`。`make build` 也可执行同一构建。
 
 ## 2. 打开编辑器
 
@@ -139,7 +131,7 @@ git push -u origin level/c-tom-sky-run
 
 ## 常见问题
 
-**编辑器打开是空白，或提示"游戏引擎载入失败"**：程序是用 `go build` 直接编出来的，缺编辑器的 WebAssembly 模块。用 `make build`（或第 1 节的三条命令）重新编译。
+**编辑器打开是空白，或提示"游戏引擎载入失败"**：用 `go run ./tools/build` 重新编译，生成并嵌入编辑器的 WebAssembly 模块。
 
 **我不在仓库里，保存到哪了？**：存到游戏程序旁边的 `levels/` 文件夹，保存后提示里有完整路径。想提交 PR，把文件复制到仓库的 `pkg/level/data/`。
 

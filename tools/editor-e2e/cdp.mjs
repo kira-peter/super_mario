@@ -6,20 +6,33 @@ import path from 'node:path';
 
 export async function launch(url, { width = 1500, height = 900 } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdp-'));
-  const chrome = spawn(process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
+  const executable = process.env.CHROME || {
+    win32: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  }[process.platform] || 'google-chrome';
+  const chrome = spawn(executable, [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${dir}`,
     `--window-size=${width},${height}`, '--no-first-run', '--no-default-browser-check', 'about:blank',
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  ], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
   const wsUrl = await new Promise((res, rej) => {
     let buf = '';
-    chrome.stderr.on('data', d => { buf += d; const m = buf.match(/ws:\/\/[^\s]+/); if (m) res(m[0]); });
-    setTimeout(() => rej(new Error('chrome did not start: ' + buf)), 15000);
+    const timeout = setTimeout(() => rej(new Error('chrome did not start: ' + buf)), 15000);
+    chrome.on('error', e => { clearTimeout(timeout); rej(e); });
+    chrome.stderr.on('data', d => {
+      buf += d;
+      const m = buf.match(/ws:\/\/[^\s]+/);
+      if (m) { clearTimeout(timeout); res(m[0]); }
+    });
   });
   const port = new URL(wsUrl).port;
   const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
   const page = targets.find(t => t.type === 'page');
   const ws = new WebSocket(page.webSocketDebuggerUrl);
-  await new Promise(r => ws.addEventListener('open', r));
+  await new Promise((resolve, reject) => {
+    ws.addEventListener('open', resolve, { once: true });
+    ws.addEventListener('error', e => reject(e.error || new Error('Chrome DevTools socket failed')), { once: true });
+    ws.addEventListener('close', e => reject(new Error('Chrome DevTools socket closed: ' + e.code)), { once: true });
+  });
   let id = 0; const pending = new Map(); const listeners = [];
   ws.addEventListener('message', ev => {
     const m = JSON.parse(ev.data);

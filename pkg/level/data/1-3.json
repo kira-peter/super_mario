@@ -13,17 +13,17 @@
     "                                                                                                                                                                        ",
     "                                                                                                                                                              T         ",
     "                                                                            ?                                                                                 F         ",
-    "                                                                                 o                                        ooo                                 F         ",
-    "                              o                         o                       o o                                                                           F         ",
+    "                                                                                 o                                      o ooo                                 F         ",
+    "                              o                         o                       o o                                    o oo                                   F         ",
     "                             o o                       o o                                             o                  HHH                                 F         ",
-    "                                                                          BBBBB                       o o                                                     F         ",
+    "                                o                         o               BBBBB                       o o                                                     F         ",
     "                o               HHHH                      HH                                                        HH                                        F         ",
     "               o o       HHH                              HH                                      HHH               HH           HHHHH                 H      F         ",
-    "                         HHH                  HHHHHHHH    HH    HHHHHH                    HHHH                      HH           HHHHH                HH      F         ",
-    "                  HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH                    HHHH           HHHHHHH    HH           HHHHH    HHH        HHH      F         ",
-    "                  HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHH    HH           HHHHH    HHH       HHHH      F         ",
-    "XXXXXXXXXXXXXX    HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHH    HH           HHHHH    HHH    XXXXXXXXXXXXXXXXXXXXXXX",
-    "XXXXXXXXXXXXXX    HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHH    HH           HHHHH    HHH    XXXXXXXXXXXXXXXXXXXXXXX"
+    "                  o      HHH                  HHHHHHHH    HH    HHHHHH                    HHHH           o          HH           HHHHH                HH      F         ",
+    "                  HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             o      HHHH           HHHHHHHHH  HH           HHHHH    HHH        HHH      F         ",
+    "                  HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHHHH  HH           HHHHH    HHH       HHHH      F         ",
+    "XXXXXXXXXXXXXX    HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHHHH  HH           HHHHH    HHH    XXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXX    HHH    HHH            HHH   HHHHHHHH    HH    HHHHHH             HHH    HHHH           HHHHHHHHH  HH           HHHHH    HHH    XXXXXXXXXXXXXXXXXXXXXXX"
   ],
   "contents": [
     {"x": 76, "y": 3, "kind": "mushroom"}
@@ -31,8 +31,6 @@
   "entities": [
     {"kind": "koopa", "x": 52, "y": 9},
     {"kind": "goomba", "x": 68, "y": 9},
-    {"kind": "goomba", "x": 108, "y": 10},
-    {"kind": "goomba", "x": 110, "y": 10},
     {"kind": "koopa", "x": 133, "y": 8}
   ]
 }
